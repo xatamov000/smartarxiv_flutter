@@ -1,0 +1,73 @@
+name: smartarxiv
+description: SmartArxiv - OCR va hujjatlar boshqaruv ilovasi
+publish_to: "none"
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.7.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Image edit (pure flutter)
+  crop_your_image: ^1.1.0
+  image: ^4.2.0
+
+  # Backend bilan HTTP orqali ishlash
+  dio: ^5.7.0
+
+  # Fayl ochish va ulashish
+  share_plus: ^7.2.0
+  open_file: ^3.3.2
+
+  # Firebase (hozircha ishlatilmasa ham qoldiramiz)
+  firebase_core: ^3.5.0
+  firebase_auth: ^5.1.4
+
+  # Fayl tanlash & kamera
+  image_picker: ^1.0.7
+  file_picker: ^8.0.0
+
+  # Lokal saqlash
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Permissions
+  permission_handler: ^11.3.1
+
+  # UI
+  animations: ^2.0.8
+  flutter_svg: ^2.0.9
+
+  # Tizim papkalar
+  path_provider: ^2.1.3
+  path: ^1.9.0
+
+  # PDF generatsiya (scan rejimi)
+  pdf: ^3.10.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^4.0.0
+
+  # Hive adapter yaratish uchun
+  build_runner: ^2.4.11
+  hive_generator: ^2.0.1
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/icons/
+    - assets/images/
+
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto-Regular.ttf
+        - asset: assets/fonts/Roboto-Medium.ttf
+        - asset: assets/fonts/Roboto-Bold.ttf
