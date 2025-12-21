@@ -39,7 +39,7 @@ class ApiService {
   factory ApiService() => _instance;
 
   // ✅ PC IPv4 manzilingni yoz
-  static const String _baseUrl = "http://172.26.185.170:8000";
+  static const String _baseUrl = "http://127.0.0.1:8000";
 
   late final Dio _dio = Dio(
     BaseOptions(
