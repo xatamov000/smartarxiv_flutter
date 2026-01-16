@@ -10,6 +10,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:hive/hive.dart';
 
 // ============================================================
 // OCR RESPONSE MODEL
@@ -38,12 +39,21 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  // ✅ PC IPv4 manzilingni yoz
-  static const String _baseUrl = "http://127.0.0.1:8000";
+  static const String _defaultBaseUrl = "http://127.0.0.1:8000";
+
+  String _readBaseUrl() {
+    try {
+      final box = Hive.box('settings_box');
+      final v = (box.get('base_url') ?? '').toString().trim();
+      return v.isEmpty ? _defaultBaseUrl : v;
+    } catch (_) {
+      return _defaultBaseUrl;
+    }
+  }
 
   late final Dio _dio = Dio(
     BaseOptions(
-      baseUrl: _baseUrl,
+      baseUrl: _readBaseUrl(),
       connectTimeout: const Duration(seconds: 60),
       receiveTimeout: const Duration(seconds: 120),
       sendTimeout: const Duration(seconds: 120),
@@ -51,15 +61,22 @@ class ApiService {
     ),
   );
 
+  void _refreshBaseUrl() {
+    final url = _readBaseUrl();
+    if (_dio.options.baseUrl != url) {
+      _dio.options.baseUrl = url;
+    }
+  }
+
   // ------------------------------------------------------------
   // Health
   // ------------------------------------------------------------
 
   Future<bool> checkHealth() async {
     try {
+      _refreshBaseUrl();
       final res = await _dio.get("/health");
-      if (res.statusCode != 200) return false;
-      return true;
+      return res.statusCode == 200;
     } catch (_) {
       return false;
     }
@@ -75,6 +92,8 @@ class ApiService {
     String? documentId,
   }) async {
     try {
+      _refreshBaseUrl();
+
       final formData = FormData.fromMap({
         "image": await MultipartFile.fromFile(image.path),
         "lang": lang,
@@ -84,10 +103,7 @@ class ApiService {
       final res = await _dio.post("/ocr", data: formData);
       final data = res.data;
 
-      if (data is Map) {
-        return OcrResult.fromJson(data);
-      }
-
+      if (data is Map) return OcrResult.fromJson(data);
       return OcrResult(text: "");
     } on DioException catch (e) {
       throw Exception(_niceDioError(e));
@@ -102,6 +118,7 @@ class ApiService {
 
   Future<List<int>> buildDocxFromText(String text) async {
     try {
+      _refreshBaseUrl();
       final res = await _dio.post(
         "/build-docx",
         data: FormData.fromMap({"text": text}),
@@ -123,6 +140,8 @@ class ApiService {
     String? documentId,
   }) async {
     try {
+      _refreshBaseUrl();
+
       final formData = FormData.fromMap({
         "image": await MultipartFile.fromFile(image.path),
         "lang": lang,
@@ -163,6 +182,8 @@ class ApiService {
     }
 
     try {
+      _refreshBaseUrl();
+
       final files = <MultipartFile>[];
       for (final f in images) {
         files.add(await MultipartFile.fromFile(f.path));

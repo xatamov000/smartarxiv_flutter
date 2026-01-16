@@ -14,6 +14,8 @@ dependencies:
   # Image edit (pure flutter)
   crop_your_image: ^1.1.0
   image: ^4.2.0
+  local_auth: ^2.3.0
+  crypto: ^3.0.3
 
   # Backend bilan HTTP orqali ishlash
   dio: ^5.7.0

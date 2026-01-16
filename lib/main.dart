@@ -4,7 +4,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import 'config/app_colors.dart';
 import 'models/document_model.dart';
-// ✅ sahifalarni import qil
 import 'pages/documents_page.dart';
 import 'pages/profile_page.dart';
 import 'pages/scan_page.dart';
@@ -16,7 +15,12 @@ void main() async {
   if (!Hive.isAdapterRegistered(1)) {
     Hive.registerAdapter(DocumentModelAdapter());
   }
+
   await Hive.openBox<DocumentModel>('documents_box');
+  await Hive.openBox('profile_box');
+  await Hive.openBox(
+    'settings_box',
+  ); // qolsa ham mayli (keyin kerak bo‘lishi mumkin)
 
   runApp(const MyApp());
 }

@@ -1,13 +1,15 @@
 // lib/pages/ocr_page.dart
 //
-// OCR page (production-ready):
+// OCR page:
 // - Multi-page OCR -> bitta text (preview)
-// - OCR til AUTO + backend cache + document_id
-// - DOCX yaratish backend bilan to‘liq sync
+// - OCR language: auto yoki tanlangan (settings_box dan default oladi)
+// - Backend /health tekshiradi
+// - DOCX: DocumentService orqali saqlaydi (documents_box)
 
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 
 import '../config/app_colors.dart';
 import '../services/api_service.dart';
@@ -32,14 +34,14 @@ class _OcrPageState extends State<OcrPage> {
   int _currentStep = 0;
   String _status = "";
 
-  /// 🔥 User-selected / detected OCR language
+  /// User-selected / detected OCR language
   String _lang = "auto";
 
-  /// 🔥 Backend bilan bog‘lash uchun bitta hujjat ID
+  /// Backend cache/sync uchun bitta hujjat ID
   late final String _documentId =
       DateTime.now().millisecondsSinceEpoch.toString();
 
-  static const _langs = {
+  static const Map<String, String> _langs = {
     "auto": "Auto",
     "uzb": "O‘zbek (lotin)",
     "uzb_cyrl": "O‘zbek (krill)",
@@ -47,10 +49,30 @@ class _OcrPageState extends State<OcrPage> {
     "eng": "English",
   };
 
+  // settings_box bo‘lsa: autoDetect + preferredLang dan default olamiz
+  String _readEffectiveOcrLang() {
+    try {
+      final box = Hive.box('settings_box');
+
+      final auto = box.get('ocr_auto_detect', defaultValue: true) as bool;
+      final preferred =
+          (box.get('ocr_preferred_lang', defaultValue: 'uzb')).toString();
+
+      final lang = auto ? 'auto' : preferred;
+      return _langs.containsKey(lang) ? lang : 'auto';
+    } catch (_) {
+      return 'auto';
+    }
+  }
+
   @override
   void initState() {
     super.initState();
     _titleCtrl.text = "Hujjat $_documentId";
+
+    // ✅ default tilni settings_box dan olamiz (bo‘lmasa auto)
+    _lang = _readEffectiveOcrLang();
+
     _runOcr();
   }
 
@@ -70,7 +92,10 @@ class _OcrPageState extends State<OcrPage> {
       if (!ok) {
         throw Exception(
           "Backend ishlamayapti.\n"
-          "Telefon va PC bir xil Wi-Fi’da ekanini tekshir.",
+          "• Emulator: http://10.0.2.2:8000\n"
+          "• USB adb reverse: http://127.0.0.1:8000\n"
+          "• Real device: http://<PC_IP>:8000\n\n"
+          "Telefon va PC bir xil tarmoqda ekanini tekshir.",
         );
       }
 
@@ -92,9 +117,12 @@ class _OcrPageState extends State<OcrPage> {
         if (text.isNotEmpty) buffer.writeln(text);
         if (i != widget.images.length - 1) buffer.writeln("\n");
 
-        // 🔥 Backend aniqlagan tilni Flutter ham bilib oladi
+        // 🔥 Agar auto bo‘lsa va backend aniqlab bersa, keyingi sahifalar shu til bilan ketadi
         if (_lang == "auto" && res.detectedLang != null) {
-          _lang = res.detectedLang!;
+          final detected = res.detectedLang!.trim();
+          if (_langs.containsKey(detected)) {
+            _lang = detected;
+          }
         }
       }
 
@@ -132,8 +160,8 @@ class _OcrPageState extends State<OcrPage> {
       await DocumentService().createDocxFromImages(
         title: title,
         images: widget.images,
-        lang: _lang, // 🔥 backend cache bilan sync
-        documentId: _documentId, // 🔥 MUHIM
+        lang: _lang,
+        documentId: _documentId,
       );
 
       if (!mounted) return;
@@ -200,39 +228,13 @@ class _OcrPageState extends State<OcrPage> {
               onChanged:
                   (_loading || _saving)
                       ? null
-                      : (v) {
+                      : (v) async {
                         if (v == null) return;
                         setState(() => _lang = v);
-                        _runOcr();
+                        await _runOcr();
                       },
             ),
-
             const SizedBox(height: 12),
-
-            if (_loading) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: LinearProgressIndicator(
-                      value: total == 0 ? 0 : (_currentStep / total),
-                      minHeight: 8,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Text("$_currentStep/$total"),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  _status,
-                  style: const TextStyle(color: AppColors.textSecondary),
-                ),
-              ),
-              const SizedBox(height: 12),
-            ],
-
             TextField(
               controller: _titleCtrl,
               decoration: const InputDecoration(
@@ -240,12 +242,21 @@ class _OcrPageState extends State<OcrPage> {
                 border: OutlineInputBorder(),
               ),
             ),
-
             const SizedBox(height: 12),
+
+            if (_loading) ...[
+              LinearProgressIndicator(
+                value: total == 0 ? null : (_currentStep / total),
+              ),
+              const SizedBox(height: 8),
+              Text(_status),
+              const SizedBox(height: 12),
+            ],
 
             Expanded(
               child: TextField(
                 controller: _textCtrl,
+                readOnly: true,
                 maxLines: null,
                 expands: true,
                 decoration: const InputDecoration(
