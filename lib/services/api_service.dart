@@ -1,7 +1,7 @@
 // lib/services/api_service.dart
 //
-// 🔥 RENDER BACKEND BILAN ISHLASH UCHUN
-// fast_mode parametri o'chirilgan (500 xatolik oldini olish)
+// 🔥 500 XATOLIK TUZATILDI
+// fastMode parametri butunlay o'chirildi
 //
 
 import 'dart:io';
@@ -37,7 +37,8 @@ class ApiService {
   factory ApiService() => _instance;
 
   // 🔥 BU YERGA O'Z RENDER URL'INGIZNI QO'YING!
-  static const String _defaultBaseUrl = "https://smartocr-backend.onrender.com";
+  static const String _defaultBaseUrl =
+      "https://smartocr-backend.onrender.com/";
 
   // Misol:
   // static const String _defaultBaseUrl = "https://smartocr-abc123.onrender.com";
@@ -92,7 +93,7 @@ class ApiService {
     File image, {
     String lang = "auto",
     String? documentId,
-    bool fastMode = false, // Mavjud lekin ishlatilmaydi
+    bool fastMode = false, // Qabul qilinadi lekin yuborilmaydi
   }) async {
     try {
       _refreshBaseUrl();
@@ -100,7 +101,7 @@ class ApiService {
       final formData = FormData.fromMap({
         "image": await MultipartFile.fromFile(image.path),
         "lang": lang,
-        // "fast_mode": fastMode,  // 🔥 O'CHIRILDI - 500 xatolik oldini olish
+        // "fast_mode": fastMode,  // 🔥 YUBORILMAYDI
         if (documentId != null) "document_id": documentId,
       });
 
@@ -142,7 +143,7 @@ class ApiService {
     File image, {
     String lang = "auto",
     String? documentId,
-    bool fastMode = false, // Mavjud lekin ishlatilmaydi
+    bool fastMode = false, // Qabul qilinadi lekin yuborilmaydi
   }) async {
     try {
       _refreshBaseUrl();
@@ -150,7 +151,7 @@ class ApiService {
       final formData = FormData.fromMap({
         "image": await MultipartFile.fromFile(image.path),
         "lang": lang,
-        // "fast_mode": fastMode,  // 🔥 O'CHIRILDI - 500 xatolik oldini olish
+        // "fast_mode": fastMode,  // 🔥 YUBORILMAYDI
         if (documentId != null) "document_id": documentId,
       });
 
@@ -174,7 +175,7 @@ class ApiService {
     List<File> images, {
     String lang = "auto",
     String? documentId,
-    bool fastMode = false, // Mavjud lekin ishlatilmaydi
+    bool fastMode = false, // Qabul qilinadi lekin yuborilmaydi
   }) async {
     if (images.isEmpty) {
       throw Exception("Rasm yo'q (images bo'sh).");
@@ -185,7 +186,7 @@ class ApiService {
         images.first,
         lang: lang,
         documentId: documentId,
-        fastMode: fastMode,
+        // fastMode: fastMode,  // 🔥 YUBORILMAYDI - bu muhim!
       );
     }
 
@@ -200,7 +201,7 @@ class ApiService {
       final formData = FormData.fromMap({
         "images": files,
         "lang": lang,
-        // "fast_mode": fastMode,  // 🔥 O'CHIRILDI - 500 xatolik oldini olish
+        // "fast_mode": fastMode,  // 🔥 YUBORILMAYDI
         if (documentId != null) "document_id": documentId,
       });
 

@@ -90,7 +90,7 @@ class DocumentService {
       images,
       lang: lang,
       documentId: documentId,
-      fastMode: fastMode, // 🔥 YANGI
+      // fastMode: fastMode,  // 🔥 O'CHIRILDI - 500 xatolik
     );
 
     final dir = await getApplicationDocumentsDirectory();
