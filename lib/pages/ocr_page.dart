@@ -1,10 +1,7 @@
 // lib/pages/ocr_page.dart
 //
-// OCR page:
-// - Multi-page OCR -> bitta text (preview)
-// - OCR language: auto yoki tanlangan (settings_box dan default oladi)
-// - Backend /health tekshiradi
-// - DOCX: DocumentService orqali saqlaydi (documents_box)
+// 🔥 RENDER BACKEND UCHUN YANGILANGAN
+//
 
 import 'dart:io';
 
@@ -30,6 +27,7 @@ class _OcrPageState extends State<OcrPage> {
 
   bool _loading = false;
   bool _saving = false;
+  bool _fastMode = true; // 🔥 YANGI: default true (tezroq)
 
   int _currentStep = 0;
   String _status = "";
@@ -43,13 +41,13 @@ class _OcrPageState extends State<OcrPage> {
 
   static const Map<String, String> _langs = {
     "auto": "Auto",
-    "uzb": "O‘zbek (lotin)",
-    "uzb_cyrl": "O‘zbek (krill)",
+    "uzb": "O'zbek (lotin)",
+    "uzb_cyrl": "O'zbek (krill)",
     "rus": "Rus",
     "eng": "English",
   };
 
-  // settings_box bo‘lsa: autoDetect + preferredLang dan default olamiz
+  // settings_box bo'lsa: autoDetect + preferredLang dan default olamiz
   String _readEffectiveOcrLang() {
     try {
       final box = Hive.box('settings_box');
@@ -70,7 +68,7 @@ class _OcrPageState extends State<OcrPage> {
     super.initState();
     _titleCtrl.text = "Hujjat $_documentId";
 
-    // ✅ default tilni settings_box dan olamiz (bo‘lmasa auto)
+    // ✅ default tilni settings_box dan olamiz (bo'lmasa auto)
     _lang = _readEffectiveOcrLang();
 
     _runOcr();
@@ -82,22 +80,47 @@ class _OcrPageState extends State<OcrPage> {
     setState(() {
       _loading = true;
       _currentStep = 0;
-      _status = "OCR boshlanmoqda...";
+      _status = "Backend tekshirilmoqda...";
     });
 
     try {
       final api = ApiService();
 
-      final ok = await api.checkHealth();
-      if (!ok) {
-        throw Exception(
-          "Backend ishlamayapti.\n"
-          "• Emulator: http://10.0.2.2:8000\n"
-          "• USB adb reverse: http://127.0.0.1:8000\n"
-          "• Real device: http://<PC_IP>:8000\n\n"
-          "Telefon va PC bir xil tarmoqda ekanini tekshir.",
+      // 🔥 YANGILANGAN: Batafsil health check
+      setState(() => _status = "Backend bilan bog'lanish... (60 sek kutish)");
+
+      bool ok = false;
+      String? errorMsg;
+
+      try {
+        ok = await api.checkHealth().timeout(
+          const Duration(seconds: 60),
+          onTimeout: () {
+            errorMsg =
+                "⏱️ Backend javob bermadi (60 sek timeout).\n\n"
+                "Ehtimol:\n"
+                "• Backend uyquda (Render free plan)\n"
+                "• URL noto'g'ri\n"
+                "• Internet yo'q\n\n"
+                "Qayta urinib ko'ring yoki 1-2 daqiqa kuting.";
+            return false;
+          },
         );
+      } catch (e) {
+        errorMsg =
+            "❌ Backend bilan bog'lanish xatolik:\n$e\n\n"
+            "Tekshiring:\n"
+            "• Internet ulangan bo'lsin\n"
+            "• Backend URL to'g'ri bo'lsin (api_service.dart)";
+        ok = false;
       }
+
+      if (!ok) {
+        throw Exception(errorMsg ?? "Backend ishlamayapti.");
+      }
+
+      setState(() => _status = "✅ Backend tayyor!");
+      await Future.delayed(const Duration(milliseconds: 500));
 
       final buffer = StringBuffer();
 
@@ -110,14 +133,15 @@ class _OcrPageState extends State<OcrPage> {
         final res = await api.sendImageForOcr(
           widget.images[i],
           lang: _lang,
-          documentId: _documentId, // 🔥 MUHIM
+          documentId: _documentId,
+          fastMode: _fastMode, // 🔥 YANGI
         );
 
         final text = res.text.trim();
         if (text.isNotEmpty) buffer.writeln(text);
         if (i != widget.images.length - 1) buffer.writeln("\n");
 
-        // 🔥 Agar auto bo‘lsa va backend aniqlab bersa, keyingi sahifalar shu til bilan ketadi
+        // 🔥 Agar auto bo'lsa va backend aniqlab bersa, keyingi sahifalar shu til bilan ketadi
         if (_lang == "auto" && res.detectedLang != null) {
           final detected = res.detectedLang!.trim();
           if (_langs.containsKey(detected)) {
@@ -130,14 +154,43 @@ class _OcrPageState extends State<OcrPage> {
 
       if (_textCtrl.text.isEmpty && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("⚠️ OCR natijasi bo‘sh chiqdi")),
+          const SnackBar(content: Text("⚠️ OCR natijasi bo'sh chiqdi")),
         );
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("❌ OCR xatolik: $e")));
+
+      // 🔥 Batafsil xatolik xabari
+      String errorMessage = e.toString();
+
+      // "Exception: " prefiksini olib tashlash
+      if (errorMessage.startsWith("Exception: ")) {
+        errorMessage = errorMessage.substring(11);
+      }
+
+      showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text("❌ OCR Xatolik"),
+              content: SingleChildScrollView(child: Text(errorMessage)),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("OK"),
+                ),
+                if (errorMessage.contains("timeout") ||
+                    errorMessage.contains("Backend"))
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _runOcr(); // Qayta urinish
+                    },
+                    child: const Text("Qayta urinish"),
+                  ),
+              ],
+            ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -162,6 +215,7 @@ class _OcrPageState extends State<OcrPage> {
         images: widget.images,
         lang: _lang,
         documentId: _documentId,
+        fastMode: _fastMode, // 🔥 YANGI
       );
 
       if (!mounted) return;
@@ -173,9 +227,26 @@ class _OcrPageState extends State<OcrPage> {
       Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("❌ DOCX xatolik: $e")));
+
+      String errorMessage = e.toString();
+      if (errorMessage.startsWith("Exception: ")) {
+        errorMessage = errorMessage.substring(11);
+      }
+
+      showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text("❌ DOCX Xatolik"),
+              content: Text(errorMessage),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("OK"),
+                ),
+              ],
+            ),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -235,6 +306,22 @@ class _OcrPageState extends State<OcrPage> {
                       },
             ),
             const SizedBox(height: 12),
+
+            // 🔥 YANGI: Fast Mode checkbox
+            CheckboxListTile(
+              title: const Text("Tez rejim"),
+              subtitle: const Text("Aniqlik biroz kamayadi, lekin 2x tezroq"),
+              value: _fastMode,
+              onChanged:
+                  (_loading || _saving)
+                      ? null
+                      : (value) {
+                        setState(() => _fastMode = value ?? true);
+                      },
+              controlAffinity: ListTileControlAffinity.leading,
+            ),
+            const SizedBox(height: 12),
+
             TextField(
               controller: _titleCtrl,
               decoration: const InputDecoration(

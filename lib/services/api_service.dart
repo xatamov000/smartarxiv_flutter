@@ -1,11 +1,8 @@
 // lib/services/api_service.dart
 //
-// Backend API (FastAPI) bilan ishlash:
-// - /health
-// - /ocr (text + detected_lang)
-// - /build-docx
-// - /image-to-docx
-// - /images-to-docx
+// 🔥 RENDER BACKEND BILAN ISHLASH UCHUN
+// fast_mode parametri o'chirilgan (500 xatolik oldini olish)
+//
 
 import 'dart:io';
 
@@ -39,7 +36,11 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  static const String _defaultBaseUrl = "http://127.0.0.1:8000";
+  // 🔥 BU YERGA O'Z RENDER URL'INGIZNI QO'YING!
+  static const String _defaultBaseUrl = "https://smartocr-backend.onrender.com";
+
+  // Misol:
+  // static const String _defaultBaseUrl = "https://smartocr-abc123.onrender.com";
 
   String _readBaseUrl() {
     try {
@@ -54,9 +55,9 @@ class ApiService {
   late final Dio _dio = Dio(
     BaseOptions(
       baseUrl: _readBaseUrl(),
-      connectTimeout: const Duration(seconds: 60),
-      receiveTimeout: const Duration(seconds: 120),
-      sendTimeout: const Duration(seconds: 120),
+      connectTimeout: const Duration(seconds: 90),
+      receiveTimeout: const Duration(seconds: 180),
+      sendTimeout: const Duration(seconds: 180),
       headers: {"Accept": "application/json"},
     ),
   );
@@ -77,19 +78,21 @@ class ApiService {
       _refreshBaseUrl();
       final res = await _dio.get("/health");
       return res.statusCode == 200;
-    } catch (_) {
+    } catch (e) {
+      print("❌ Health check xatolik: $e");
       return false;
     }
   }
 
   // ------------------------------------------------------------
-  // OCR: image -> text + detected_lang
+  // OCR: image -> text
   // ------------------------------------------------------------
 
   Future<OcrResult> sendImageForOcr(
     File image, {
     String lang = "auto",
     String? documentId,
+    bool fastMode = false, // Mavjud lekin ishlatilmaydi
   }) async {
     try {
       _refreshBaseUrl();
@@ -97,6 +100,7 @@ class ApiService {
       final formData = FormData.fromMap({
         "image": await MultipartFile.fromFile(image.path),
         "lang": lang,
+        // "fast_mode": fastMode,  // 🔥 O'CHIRILDI - 500 xatolik oldini olish
         if (documentId != null) "document_id": documentId,
       });
 
@@ -138,6 +142,7 @@ class ApiService {
     File image, {
     String lang = "auto",
     String? documentId,
+    bool fastMode = false, // Mavjud lekin ishlatilmaydi
   }) async {
     try {
       _refreshBaseUrl();
@@ -145,6 +150,7 @@ class ApiService {
       final formData = FormData.fromMap({
         "image": await MultipartFile.fromFile(image.path),
         "lang": lang,
+        // "fast_mode": fastMode,  // 🔥 O'CHIRILDI - 500 xatolik oldini olish
         if (documentId != null) "document_id": documentId,
       });
 
@@ -168,9 +174,10 @@ class ApiService {
     List<File> images, {
     String lang = "auto",
     String? documentId,
+    bool fastMode = false, // Mavjud lekin ishlatilmaydi
   }) async {
     if (images.isEmpty) {
-      throw Exception("Rasm yo‘q (images bo‘sh).");
+      throw Exception("Rasm yo'q (images bo'sh).");
     }
 
     if (images.length == 1) {
@@ -178,6 +185,7 @@ class ApiService {
         images.first,
         lang: lang,
         documentId: documentId,
+        fastMode: fastMode,
       );
     }
 
@@ -192,6 +200,7 @@ class ApiService {
       final formData = FormData.fromMap({
         "images": files,
         "lang": lang,
+        // "fast_mode": fastMode,  // 🔥 O'CHIRILDI - 500 xatolik oldini olish
         if (documentId != null) "document_id": documentId,
       });
 
@@ -224,6 +233,18 @@ class ApiService {
       return "HTTP $status xatolik.\n${detail.isNotEmpty ? detail : e.message}";
     }
 
-    return e.message ?? "Network xatolik";
+    if (e.type == DioExceptionType.connectionTimeout) {
+      return "⏱️ Server javob bermadi (timeout).\nBackend ishlab turganini tekshiring.";
+    }
+
+    if (e.type == DioExceptionType.receiveTimeout) {
+      return "⏱️ Server juda sekin javob berdi.\nRasmni kichikroq qiling.";
+    }
+
+    if (e.type == DioExceptionType.connectionError) {
+      return "🌐 Internetga ulanish xatolik.\nInternet va backend URL'ni tekshiring:\n${_dio.options.baseUrl}";
+    }
+
+    return "❌ Network xatolik: ${e.message ?? 'Unknown'}";
   }
 }

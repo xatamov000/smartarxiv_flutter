@@ -1,4 +1,8 @@
 // lib/services/document_service.dart
+//
+// 🔥 YANGILANGAN Document Service - fastMode parametri bilan
+//
+
 import 'dart:io';
 
 import 'package:hive/hive.dart';
@@ -40,7 +44,7 @@ class DocumentService {
     final api = ApiService();
     final cleanText = text.trim();
     if (cleanText.isEmpty) {
-      throw Exception("Matn bo‘sh. DOCX yaratib bo‘lmaydi.");
+      throw Exception("Matn bo'sh. DOCX yaratib bo'lmaydi.");
     }
 
     final bytes = await api.buildDocxFromText(cleanText);
@@ -66,25 +70,27 @@ class DocumentService {
   }
 
   // ============================================================
-  // IMAGES -> DOCX (SYNC with OCR)
+  // IMAGES -> DOCX (SYNC with OCR) - 🔥 FASTMODE QOSHILDI
   // ============================================================
 
   Future<DocumentModel> createDocxFromImages({
     required String title,
     required List<File> images,
     String lang = "auto",
-    String? documentId, // 🔥 MUHIM
+    String? documentId,
+    bool fastMode = true, // 🔥 YANGI: default true (tezroq)
   }) async {
     final api = ApiService();
 
     if (images.isEmpty) {
-      throw Exception("Rasm yo‘q. DOCX yaratib bo‘lmaydi.");
+      throw Exception("Rasm yo'q. DOCX yaratib bo'lmaydi.");
     }
 
     final bytes = await api.buildDocxFromImages(
       images,
       lang: lang,
-      documentId: documentId, // 🔥 MUHIM
+      documentId: documentId,
+      fastMode: fastMode, // 🔥 YANGI
     );
 
     final dir = await getApplicationDocumentsDirectory();
