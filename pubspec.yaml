@@ -11,9 +11,14 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # iOS UI icons
+  cupertino_icons: ^1.0.2
+
   # Image edit (pure flutter)
   crop_your_image: ^1.1.0
   image: ^4.2.0
+
+  # Security & auth
   local_auth: ^2.3.0
   crypto: ^3.0.3
 
@@ -47,8 +52,12 @@ dependencies:
   path_provider: ^2.1.3
   path: ^1.9.0
 
-  # PDF generatsiya (scan rejimi)
+  # PDF generatsiya & preview
   pdf: ^3.10.4
+  printing: ^5.11.0
+
+  # File compression (zip, export)
+  archive: ^3.4.9
 
 dev_dependencies:
   flutter_test:

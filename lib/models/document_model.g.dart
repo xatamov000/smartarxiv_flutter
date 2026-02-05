@@ -21,13 +21,15 @@ class DocumentModelAdapter extends TypeAdapter<DocumentModel> {
       filePath: fields[1] as String,
       createdAt: fields[2] as DateTime,
       fileType: fields[3] as String?,
+      isFavorite: fields[4] == null ? false : fields[4] as bool,
+      category: fields[5] == null ? 'Umumiy' : fields[5] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, DocumentModel obj) {
     writer
-      ..writeByte(4)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.title)
       ..writeByte(1)
@@ -35,7 +37,11 @@ class DocumentModelAdapter extends TypeAdapter<DocumentModel> {
       ..writeByte(2)
       ..write(obj.createdAt)
       ..writeByte(3)
-      ..write(obj.fileType);
+      ..write(obj.fileType)
+      ..writeByte(4)
+      ..write(obj.isFavorite)
+      ..writeByte(5)
+      ..write(obj.category);
   }
 
   @override
