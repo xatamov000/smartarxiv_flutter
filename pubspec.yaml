@@ -59,6 +59,14 @@ dependencies:
   # File compression (zip, export)
   archive: ^3.4.9
 
+  # Word to PDF conversion
+  docx_to_text: ^1.0.1
+
+  # Google Drive integration
+  googleapis: ^13.2.0
+  googleapis_auth: ^1.6.0
+  http: ^1.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

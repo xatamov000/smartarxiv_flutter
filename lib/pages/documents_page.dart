@@ -3,7 +3,6 @@
 
 import 'dart:io';
 
-import 'package:archive/archive_io.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +16,10 @@ import 'package:share_plus/share_plus.dart';
 import '../config/app_colors.dart';
 import '../models/document_model.dart';
 import '../services/api_service.dart';
+import '../services/compress_service.dart';
+import '../services/google_drive_service.dart';
+import '../services/pdf_split_service.dart';
+import '../services/word_to_pdf_service.dart';
 import 'widgets/bottom_nav.dart';
 
 class DocumentsPage extends StatefulWidget {
@@ -31,6 +34,8 @@ class _DocumentsPageState extends State<DocumentsPage>
   late final Future<Box<DocumentModel>> _boxFuture;
   late TabController _tabController;
   bool _backendWaking = false;
+  final GoogleDriveService _driveService =
+      GoogleDriveService(); // Drive service
 
   String _selectedCategory = 'Barchasi';
 
@@ -54,6 +59,7 @@ class _DocumentsPageState extends State<DocumentsPage>
   @override
   void dispose() {
     _tabController.dispose();
+    _driveService.dispose();
     super.dispose();
   }
 
@@ -89,38 +95,7 @@ class _DocumentsPageState extends State<DocumentsPage>
           children: [
             _buildHeader(),
 
-            if (_backendWaking)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 6,
-                  horizontal: 16,
-                ),
-                color: Colors.orange.shade50,
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.orange,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        "Backend uyg'onmoqda...",
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.orange.shade900,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            const SizedBox(height: 8), // 🔥 Kamaytirildi: 16 → 8
+            const SizedBox(height: 20), // Service va header orasida 20px
             // Services Grid
             _buildServicesGrid(),
 
@@ -558,57 +533,118 @@ class _DocumentsPageState extends State<DocumentsPage>
 
   Future<void> _compressFile() async {
     try {
-      final result = await FilePicker.platform.pickFiles();
+      // 1. Manba tanlash - Documents yoki Ichki xotira
+      final source = await _showSourceSelectionDialog();
+      if (source == null) return;
 
-      if (result == null || result.files.isEmpty) return;
+      List<File> filesToCompress = [];
 
-      final file = File(result.files.first.path!);
-      final fileName = result.files.first.name;
+      if (source == 'documents') {
+        // Documents dan tanlash
+        final box = await _boxFuture;
+        final docs = box.values.toList();
+
+        if (docs.isEmpty) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text("❌ Documents bo'sh")));
+          return;
+        }
+
+        // Fayllarni tanlash dialog
+        final selectedDocs = await _showDocumentSelectionDialog(docs);
+        if (selectedDocs == null || selectedDocs.isEmpty) return;
+
+        filesToCompress =
+            selectedDocs.map((doc) => File(doc.filePath)).toList();
+      } else {
+        // Ichki xotiradan tanlash
+        final result = await FilePicker.platform.pickFiles(
+          allowMultiple: true,
+          type: FileType.custom,
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf', 'docx'],
+        );
+
+        if (result == null || result.files.isEmpty) return;
+        filesToCompress = result.files.map((f) => File(f.path!)).toList();
+      }
 
       if (!mounted) return;
 
-      _showLoading("Siqilmoqda...");
+      // 2. Siqish darajasini tanlash
+      final level = await _showCompressionLevelDialog();
+      if (level == null) return;
 
-      // Compress file using archive package
-      final bytes = await file.readAsBytes();
-      final archive = Archive();
+      if (!mounted) return;
+      _showLoading("Siqilmoqda... 0/${filesToCompress.length}");
 
-      archive.addFile(ArchiveFile(fileName, bytes.length, bytes));
-
-      final zipBytes = ZipEncoder().encode(archive);
-
-      if (zipBytes == null) throw Exception("Siqishda xatolik");
-
-      // Save compressed file
-      final dir = await getApplicationDocumentsDirectory();
-      final zipPath = path.join(
-        dir.path,
-        '${path.basenameWithoutExtension(fileName)}.zip',
-      );
-      final zipFile = File(zipPath);
-      await zipFile.writeAsBytes(zipBytes);
-
-      // Save to Hive
+      // 3. Fayllarni siqish
+      final compressedFiles = <String>[];
       final box = await _boxFuture;
-      final doc = DocumentModel(
-        title: path.basename(zipPath),
-        filePath: zipPath,
-        createdAt: DateTime.now(),
-        fileType: 'zip',
-        category: 'Boshqa',
-      );
-      await box.add(doc);
+
+      for (int i = 0; i < filesToCompress.length; i++) {
+        try {
+          final originalFile = filesToCompress[i];
+          final compressedPath = await CompressService.compressFile(
+            originalFile,
+            level,
+          );
+
+          compressedFiles.add(compressedPath);
+
+          // Hive ga qo'shish
+          final doc = DocumentModel(
+            title: path.basename(compressedPath),
+            filePath: compressedPath,
+            createdAt: DateTime.now(),
+            fileType: path.extension(compressedPath).substring(1),
+            category: 'Boshqa',
+          );
+          await box.add(doc);
+
+          // Progress yangilash
+          if (mounted) {
+            Navigator.pop(context);
+            _showLoading("Siqilmoqda... ${i + 1}/${filesToCompress.length}");
+          }
+        } catch (e) {
+          print("❌ ${path.basename(filesToCompress[i].path)} xatolik: $e");
+        }
+      }
 
       if (!mounted) return;
-      Navigator.pop(context); // Close loading
+      Navigator.pop(context);
+
+      // 4. Natijani ko'rsatish
+      if (compressedFiles.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("❌ Hech qanday fayl siqilmadi")),
+        );
+        return;
+      }
+
+      // Statistikani hisoblash
+      int totalOriginalSize = 0;
+      int totalCompressedSize = 0;
+
+      for (int i = 0; i < compressedFiles.length; i++) {
+        if (i < filesToCompress.length) {
+          totalOriginalSize += await filesToCompress[i].length();
+          totalCompressedSize += await File(compressedFiles[i]).length();
+        }
+      }
+
+      final savedBytes = totalOriginalSize - totalCompressedSize;
+      final savedPercent = (savedBytes / totalOriginalSize * 100).round();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("✅ Siqildi: ${_getFileSize(zipPath)}"),
-          action: SnackBarAction(
-            label: "Ochish",
-            onPressed: () => OpenFile.open(zipPath),
+          content: Text(
+            "✅ ${compressedFiles.length} ta fayl siqildi\n"
+            "Tejaldi: ${_formatBytes(savedBytes)} ($savedPercent%)",
           ),
+          duration: const Duration(seconds: 4),
         ),
       );
     } catch (e) {
@@ -620,15 +656,206 @@ class _DocumentsPageState extends State<DocumentsPage>
     }
   }
 
-  Future<void> _convertToPdf() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          "⚠️ DOCX→PDF uchun syncfusion_flutter_pdf package kerak.\nHozircha faqat matn PDF yaratish mumkin.",
-        ),
-        duration: Duration(seconds: 3),
-      ),
+  /// Manba tanlash dialog
+  Future<String?> _showSourceSelectionDialog() async {
+    return showDialog<String>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text("Fayllarni tanlash"),
+            content: const Text("Qayerdan fayllarni tanlaysiz?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Bekor qilish"),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context, 'documents'),
+                icon: const Icon(Icons.folder, size: 20),
+                label: const Text("Documents"),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => Navigator.pop(context, 'storage'),
+                icon: const Icon(Icons.storage, size: 20),
+                label: const Text("Ichki xotira"),
+              ),
+            ],
+          ),
     );
+  }
+
+  /// Documents dan fayllarni tanlash dialog
+  Future<List<DocumentModel>?> _showDocumentSelectionDialog(
+    List<DocumentModel> docs,
+  ) async {
+    final selected = <DocumentModel>[];
+
+    return showDialog<List<DocumentModel>>(
+      context: context,
+      builder:
+          (context) => StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: const Text("Fayllarni tanlang"),
+                content: SizedBox(
+                  width: double.maxFinite,
+                  height: 400,
+                  child: ListView.builder(
+                    itemCount: docs.length,
+                    itemBuilder: (context, index) {
+                      final doc = docs[index];
+                      final isSelected = selected.contains(doc);
+
+                      return CheckboxListTile(
+                        value: isSelected,
+                        onChanged: (val) {
+                          setDialogState(() {
+                            if (val == true) {
+                              selected.add(doc);
+                            } else {
+                              selected.remove(doc);
+                            }
+                          });
+                        },
+                        title: Text(
+                          doc.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          "${(doc.fileType ?? 'file').toUpperCase()} • ${_getFileSize(doc.filePath)}",
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                        secondary: Icon(
+                          _getFileTypeIcon(doc.fileType ?? ''),
+                          color: _getFileTypeColor(doc.fileType ?? ''),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text("Bekor qilish"),
+                  ),
+                  ElevatedButton(
+                    onPressed:
+                        selected.isEmpty
+                            ? null
+                            : () => Navigator.pop(context, selected),
+                    child: Text("Tanlash (${selected.length})"),
+                  ),
+                ],
+              );
+            },
+          ),
+    );
+  }
+
+  /// Siqish darajasini tanlash dialog
+  Future<CompressionLevel?> _showCompressionLevelDialog() async {
+    return showDialog<CompressionLevel>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text("Siqish darajasi"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "Yuqori daraja - kichik fayl, past sifat\n"
+                  "Past daraja - katta fayl, yuqori sifat",
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: const Icon(Icons.looks_one, color: Colors.green),
+                  title: const Text("Past siqish"),
+                  subtitle: const Text("90% sifat - minimal siqish"),
+                  onTap: () => Navigator.pop(context, CompressionLevel.low),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.looks_two, color: Colors.orange),
+                  title: const Text("O'rta siqish"),
+                  subtitle: const Text("70% sifat - o'rtacha siqish"),
+                  onTap: () => Navigator.pop(context, CompressionLevel.medium),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.looks_3, color: Colors.red),
+                  title: const Text("Yuqori siqish"),
+                  subtitle: const Text("50% sifat - maksimal siqish"),
+                  onTap: () => Navigator.pop(context, CompressionLevel.high),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Bekor qilish"),
+              ),
+            ],
+          ),
+    );
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  Future<void> _convertToPdf() async {
+    try {
+      // Word fayl tanlash
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['docx', 'doc'],
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      if (!mounted) return;
+      _showLoading("Word→PDF konvertatsiya...");
+
+      final wordFile = File(result.files.first.path!);
+
+      // PDF ga o'girish
+      final pdfPath = await WordToPdfService.convertToPdf(wordFile);
+
+      // Hive ga saqlash
+      final box = await _boxFuture;
+      final doc = DocumentModel(
+        title: path.basename(pdfPath),
+        filePath: pdfPath,
+        createdAt: DateTime.now(),
+        fileType: 'pdf',
+        category: 'Boshqa',
+      );
+      await box.add(doc);
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text("✅ Word→PDF muvaffaqiyatli"),
+          action: SnackBarAction(
+            label: "Ochish",
+            onPressed: () => OpenFile.open(pdfPath),
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("❌ Xatolik: $e")));
+    }
   }
 
   Future<void> _mergeFiles() async {
@@ -698,13 +925,104 @@ class _DocumentsPageState extends State<DocumentsPage>
   }
 
   Future<void> _uploadToDrive() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          "⚠️ Google Drive uchun:\n- google_sign_in\n- googleapis\npackage'lar kerak.",
-        ),
-        duration: Duration(seconds: 3),
-      ),
+    try {
+      // Fayl tanlash
+      final result = await FilePicker.platform.pickFiles(allowMultiple: true);
+
+      if (result == null || result.files.isEmpty) return;
+
+      if (!mounted) return;
+
+      // Google Drive credentials so'rash
+      final credentials = await _showDriveCredentialsDialog();
+      if (credentials == null) return;
+
+      _showLoading("Google Drive ga ulanmoqda...");
+
+      // Autentifikatsiya
+      final authenticated = await _driveService.authenticate(credentials);
+
+      if (!authenticated) {
+        if (!mounted) return;
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("❌ Drive ga ulanish xatolik")),
+        );
+        return;
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      _showLoading("Fayllar yuklanmoqda... 0/${result.files.length}");
+
+      // Fayllarni yuklash
+      final files = result.files.map((f) => File(f.path!)).toList();
+
+      int uploaded = 0;
+      for (final file in files) {
+        await _driveService.uploadFile(file, folderName: 'SmartArxiv');
+        uploaded++;
+
+        if (mounted) {
+          Navigator.pop(context);
+          _showLoading("Fayllar yuklanmoqda... $uploaded/${files.length}");
+        }
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("✅ ${files.length} ta fayl Drive ga yuklandi")),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("❌ Xatolik: $e")));
+    }
+  }
+
+  Future<String?> _showDriveCredentialsDialog() async {
+    final controller = TextEditingController();
+
+    return showDialog<String>(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text("Google Drive Credentials"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "Google Cloud Console'dan olingan Service Account JSON credentials'ni kiriting:",
+                  style: TextStyle(fontSize: 12),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(
+                    labelText: "Credentials JSON",
+                    border: OutlineInputBorder(),
+                    hintText: '{"type": "service_account", ...}',
+                  ),
+                  maxLines: 5,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Bekor qilish"),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, controller.text.trim()),
+                child: const Text("Yuklash"),
+              ),
+            ],
+          ),
     );
   }
 
@@ -776,14 +1094,78 @@ class _DocumentsPageState extends State<DocumentsPage>
   }
 
   Future<void> _splitPdf() async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          "⚠️ PDF Split uchun pdf package bilan sahifalarni ajratish logikasi kerak.",
-        ),
-        duration: Duration(seconds: 3),
-      ),
-    );
+    try {
+      // PDF fayl tanlash
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf'],
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final pdfFile = File(result.files.first.path!);
+
+      if (!mounted) return;
+      _showLoading("PDF tekshirilmoqda...");
+
+      // Sahifalar sonini olish (taxminiy)
+      final pageCount = await PdfSplitService.getPageCount(pdfFile);
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      // Foydalanuvchiga ma'lumot berish
+      showDialog(
+        context: context,
+        builder:
+            (context) => AlertDialog(
+              title: const Text("PDF Split"),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Tanlangan PDF: ${path.basename(pdfFile.path)}"),
+                  const SizedBox(height: 8),
+                  Text("Taxminiy sahifalar: ~$pageCount"),
+                  const SizedBox(height: 16),
+                  const Text(
+                    "⚠️ PDF split funksiyasi uchun qo'shimcha package kerak:",
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    "1. syncfusion_flutter_pdf\n"
+                    "2. native_pdf_renderer\n"
+                    "3. pdfx\n\n"
+                    "Birini pubspec.yaml ga qo'shing va qayta build qiling.",
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Yopish"),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    // Faylni ochish (view qilish)
+                    OpenFile.open(pdfFile.path);
+                  },
+                  child: const Text("PDF ni ochish"),
+                ),
+              ],
+            ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("❌ Xatolik: $e")));
+    }
   }
 
   void _showLoading(String message) {
