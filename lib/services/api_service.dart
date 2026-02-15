@@ -36,9 +36,10 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  // 🔥 BU YERGA O'Z RENDER URL'INGIZNI QO'YING!
-  static const String _defaultBaseUrl =
-      "https://smartocr-backend.onrender.com/";
+  // 🔥 BU YERGA O'Z FLY.IO URL'INGIZNI QO'YING!
+  static const String _defaultBaseUrl = "https://smartocr-backend.fly.dev/";
+
+  // Render.com endi kerak emas - Fly.io ishlamoqda! ✅
 
   // Misol:
   // static const String _defaultBaseUrl = "https://smartocr-abc123.onrender.com";
@@ -56,9 +57,9 @@ class ApiService {
   late final Dio _dio = Dio(
     BaseOptions(
       baseUrl: _readBaseUrl(),
-      connectTimeout: const Duration(seconds: 90),
-      receiveTimeout: const Duration(seconds: 180),
-      sendTimeout: const Duration(seconds: 180),
+      connectTimeout: const Duration(seconds: 120), // 90 → 120 sek
+      receiveTimeout: const Duration(seconds: 240), // 180 → 240 sek
+      sendTimeout: const Duration(seconds: 240), // 180 → 240 sek
       headers: {"Accept": "application/json"},
     ),
   );
@@ -71,18 +72,43 @@ class ApiService {
   }
 
   // ------------------------------------------------------------
-  // Health
+  // Health - retry bilan
   // ------------------------------------------------------------
 
-  Future<bool> checkHealth() async {
-    try {
-      _refreshBaseUrl();
-      final res = await _dio.get("/health");
-      return res.statusCode == 200;
-    } catch (e) {
-      print("❌ Health check xatolik: $e");
-      return false;
+  Future<bool> checkHealth({int maxRetries = 3}) async {
+    for (int attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        _refreshBaseUrl();
+        print("🔄 Backend tekshirilmoqda (urinish $attempt/$maxRetries)...");
+
+        final res = await _dio.get(
+          "/health",
+          options: Options(
+            sendTimeout: const Duration(seconds: 120),
+            receiveTimeout: const Duration(seconds: 120),
+          ),
+        );
+
+        if (res.statusCode == 200) {
+          print("✅ Backend tayyor!");
+          return true;
+        }
+      } catch (e) {
+        print("❌ Urinish $attempt xatolik: $e");
+
+        if (attempt < maxRetries) {
+          // Keyingi urinishdan oldin kutish
+          final waitSeconds = attempt * 2; // 2, 4, 6 sekund
+          print("⏳ $waitSeconds sekund kutilmoqda...");
+          await Future.delayed(Duration(seconds: waitSeconds));
+        }
+      }
     }
+
+    print(
+      "❌ Backend ishlamayapti. Render free plan uyqu holatida bo'lishi mumkin.",
+    );
+    return false;
   }
 
   // ------------------------------------------------------------
