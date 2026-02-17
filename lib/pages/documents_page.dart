@@ -41,7 +41,6 @@ class _DocumentsPageState extends State<DocumentsPage>
 
   final List<String> _categories = [
     'Barchasi',
-    'Umumiy',
     'Ish',
     'Shaxsiy',
     "O'quv",

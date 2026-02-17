@@ -67,6 +67,9 @@ dependencies:
   googleapis_auth: ^1.6.0
   http: ^1.2.0
 
+  # ⚡ ON-DEVICE OCR (YANGI VERSIYA - GRADLE BILAN ISHLAYDI!)
+  google_mlkit_text_recognition: ^0.13.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
