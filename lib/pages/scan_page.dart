@@ -1,12 +1,5 @@
 // lib/pages/scan_page.dart
-//
-// Export UX final:
-// - Camera/Gallery/File: faqat ro'yxatga qo'shadi (editga avtomatik ketmaydi)
-// - Katta rasm bosilsa: full screen edit (ImageEditPage)
-// - Crop faqat camera rasmlarida
-// - Export tanlovi: PDF (scan) yoki DOCX (OCR)
-// - PDF: offline yaratadi (rasmlar sahifalarga joylanadi)
-// - DOCX: OcrPage ga o'tadi (keyin DocumentService bilan to'liq bog'laymiz)
+// DEBUG VERSION - Kamera muammosini topish uchun
 
 import 'dart:io';
 
@@ -14,10 +7,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
-// Open/Share
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
-// PDF
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:share_plus/share_plus.dart';
@@ -37,7 +28,7 @@ class ScanPage extends StatefulWidget {
 
 class _ScanItem {
   File file;
-  final bool allowCrop; // camera = true, boshqa = false
+  final bool allowCrop;
 
   _ScanItem({required this.file, required this.allowCrop});
 }
@@ -53,27 +44,59 @@ class _ScanPageState extends State<ScanPage> {
       _pages.isEmpty ? null : _pages[_currentIndex.clamp(0, _pages.length - 1)];
 
   // ============================================================
-  // Camera (crop allowed) — faqat qo'shadi
+  // Camera - DEBUG VERSION
   // ============================================================
   Future<void> _addFromCamera() async {
-    final ok = await PermissionService.requestCamera();
-    if (!ok) return;
+    print('🔵 [DEBUG] Kamera tugmasi bosildi');
 
-    final img = await _picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 90,
-    );
-    if (img == null) return;
+    try {
+      print('🔵 [DEBUG] Permission so\'ralyapti...');
+      final ok = await PermissionService.requestCamera();
+      print('🔵 [DEBUG] Permission natijasi: $ok');
 
-    setState(() {
-      _pages.add(_ScanItem(file: File(img.path), allowCrop: true));
-      _currentIndex = _pages.length - 1;
-    });
+      if (!ok) {
+        print('🔴 [DEBUG] Ruxsat berilmadi');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Kamera ruxsati berilmadi')),
+          );
+        }
+        return;
+      }
+
+      print('🔵 [DEBUG] ImagePicker ochilmoqda...');
+      final img = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 90,
+      );
+
+      print('🔵 [DEBUG] ImagePicker natijasi: ${img?.path ?? "null"}');
+
+      if (img == null) {
+        print('🟡 [DEBUG] Foydalanuvchi bekor qildi');
+        return;
+      }
+
+      print('🟢 [DEBUG] Rasm muvaffaqiyatli olindi: ${img.path}');
+
+      setState(() {
+        _pages.add(_ScanItem(file: File(img.path), allowCrop: true));
+        _currentIndex = _pages.length - 1;
+      });
+
+      print('🟢 [DEBUG] Rasm ro\'yxatga qo\'shildi');
+    } catch (e, stackTrace) {
+      print('🔴 [DEBUG] XATOLIK: $e');
+      print('🔴 [DEBUG] Stack trace: $stackTrace');
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Xatolik: $e')));
+      }
+    }
   }
 
-  // ============================================================
-  // Gallery (no crop) — faqat qo'shadi
-  // ============================================================
   Future<void> _pickGalleryImages() async {
     final ok = await PermissionService.requestStorage();
     if (!ok) return;
@@ -89,9 +112,6 @@ class _ScanPageState extends State<ScanPage> {
     });
   }
 
-  // ============================================================
-  // File picker (no crop) — faqat qo'shadi
-  // ============================================================
   Future<void> _pickFiles() async {
     final ok = await PermissionService.requestStorage();
     if (!ok) return;
@@ -114,9 +134,6 @@ class _ScanPageState extends State<ScanPage> {
     });
   }
 
-  // ============================================================
-  // Open editor (preview bosilganda)
-  // ============================================================
   Future<void> _openEditor(int index) async {
     if (index < 0 || index >= _pages.length) return;
 
@@ -152,9 +169,6 @@ class _ScanPageState extends State<ScanPage> {
     }
   }
 
-  // ============================================================
-  // EXPORT UI (PDF / DOCX)
-  // ============================================================
   void _showExportSheet() {
     if (_pages.isEmpty) return;
 
@@ -185,21 +199,17 @@ class _ScanPageState extends State<ScanPage> {
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 14),
-
-                // PDF
                 ListTile(
                   leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
-                  title: const Text("PDF (scan ko‘rinish)"),
+                  title: const Text("PDF (scan ko'rinish)"),
                   subtitle: const Text(
-                    "Rasmlar sahifalarga joylanadi. Ko‘rinish 100% saqlanadi.",
+                    "Rasmlar sahifalarga joylanadi. Ko'rinish 100% saqlanadi.",
                   ),
                   onTap: () {
                     Navigator.pop(context);
                     _exportAsPdf();
                   },
                 ),
-
-                // DOCX
                 ListTile(
                   leading: const Icon(Icons.description, color: Colors.blue),
                   title: const Text("Word (DOCX)"),
@@ -221,12 +231,6 @@ class _ScanPageState extends State<ScanPage> {
 
   Future<void> _exportAsDocxFlow() async {
     final files = _pages.map((e) => e.file).toList();
-
-    // Hozircha DOCX oqimi OcrPage orqali.
-    // Keyingi bosqichda DocumentService bilan to'liq bog'laymiz:
-    // - OCR -> text
-    // - DOCX builder
-    // - file save + Documents listga qo'shish
     if (!mounted) return;
     await Navigator.push(
       context,
@@ -311,9 +315,6 @@ class _ScanPageState extends State<ScanPage> {
 
   String _two(int n) => n.toString().padLeft(2, '0');
 
-  // ============================================================
-  // UI
-  // ============================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -429,7 +430,6 @@ class _ScanPageState extends State<ScanPage> {
             ),
           ),
         const SizedBox(height: 18),
-
         SizedBox(
           height: 90,
           child: ListView.builder(
@@ -455,10 +455,7 @@ class _ScanPageState extends State<ScanPage> {
             },
           ),
         ),
-
         const SizedBox(height: 16),
-
-        // EXPORT button (PDF / DOCX)
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           child: SizedBox(
@@ -487,7 +484,6 @@ class _ScanPageState extends State<ScanPage> {
             ),
           ),
         ),
-
         const SizedBox(height: 28),
       ],
     );
@@ -514,19 +510,18 @@ class _ScanPageState extends State<ScanPage> {
             ),
           ),
           SizedBox(height: 10),
-          Text("✓ Hujjat to‘liq ko‘rinishda bo‘lsin"),
+          Text("✓ Hujjat to'liq ko'rinishda bo'lsin"),
           SizedBox(height: 6),
-          Text("✓ Yoruqlik yetarli bo‘lsin"),
+          Text("✓ Yoruqlik yetarli bo'lsin"),
           SizedBox(height: 6),
           Text("✓ Telefonni barqaror ushlang"),
           SizedBox(height: 6),
-          Text("✓ Hujjat tekis joyda bo‘lsin"),
+          Text("✓ Hujjat tekis joyda bo'lsin"),
         ],
       ),
     );
   }
 
-  // UI components
   Widget _mainScanCard() {
     return Container(
       width: double.infinity,

@@ -49,8 +49,7 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  static const String _defaultBaseUrl = "https://smartocr-backend.fly.dev";
-
+  static const String _defaultBaseUrl = "http://10.38.221.170:8000";
   String _readBaseUrl() {
     try {
       final box = Hive.box('settings_box');
@@ -308,8 +307,9 @@ class ApiService {
         if (documentId != null) "document_id": documentId,
       });
 
+      // /ocr/docx — strukturaviy (heading, list, paragraph) DOCX
       final res = await _dio.post(
-        "/image-to-docx",
+        "/ocr/docx",
         data: formData,
         options: Options(responseType: ResponseType.bytes),
       );
@@ -352,13 +352,14 @@ class ApiService {
       }
 
       final formData = FormData.fromMap({
+        // /ocr/docx/multi — ko'p sahifa uchun
         "images": files,
         "lang": lang,
         if (documentId != null) "document_id": documentId,
       });
 
       final res = await _dio.post(
-        "/images-to-docx",
+        "/ocr/docx/multi",
         data: formData,
         options: Options(
           responseType: ResponseType.bytes,
