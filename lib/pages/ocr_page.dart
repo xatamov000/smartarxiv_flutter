@@ -1,387 +1,396 @@
 // lib/pages/ocr_page.dart
-//
-// 🔥 RENDER BACKEND UCHUN YANGILANGAN
-//
+// 🎯 ODDIY YECHIM - Mavjud servicelar bilan!
 
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import 'package:open_file/open_file.dart';
+import 'package:share_plus/share_plus.dart';
 
-import '../config/app_colors.dart';
-import '../services/api_service.dart';
-import '../services/document_service.dart';
+import '../models/document_model.dart';
+import '../services/docx_creator_service.dart';
+import '../services/local_ocr_service.dart';
 
 class OcrPage extends StatefulWidget {
   final List<File> images;
 
-  const OcrPage({super.key, required this.images});
+  const OcrPage({Key? key, required this.images}) : super(key: key);
 
   @override
   State<OcrPage> createState() => _OcrPageState();
 }
 
 class _OcrPageState extends State<OcrPage> {
-  final _titleCtrl = TextEditingController();
-  final _textCtrl = TextEditingController();
+  final _localOcr = LocalOcrService();
+  final _docxCreator = DocxCreatorService();
 
-  bool _loading = false;
-  bool _saving = false;
-  bool _fastMode = true; // 🔥 YANGI: default true (tezroq)
-
-  int _currentStep = 0;
-  String _status = "";
-
-  /// User-selected / detected OCR language
-  String _lang = "auto";
-
-  /// Backend cache/sync uchun bitta hujjat ID
-  late final String _documentId =
-      DateTime.now().millisecondsSinceEpoch.toString();
-
-  static const Map<String, String> _langs = {
-    "auto": "Auto",
-    "uzb": "O'zbek (lotin)",
-    "uzb_cyrl": "O'zbek (krill)",
-    "rus": "Rus",
-    "eng": "English",
-  };
-
-  // settings_box bo'lsa: autoDetect + preferredLang dan default olamiz
-  String _readEffectiveOcrLang() {
-    try {
-      final box = Hive.box('settings_box');
-
-      final auto = box.get('ocr_auto_detect', defaultValue: true) as bool;
-      final preferred =
-          (box.get('ocr_preferred_lang', defaultValue: 'uzb')).toString();
-
-      final lang = auto ? 'auto' : preferred;
-      return _langs.containsKey(lang) ? lang : 'auto';
-    } catch (_) {
-      return 'auto';
-    }
-  }
+  String _extractedText = '';
+  bool _isProcessing = false;
+  bool _isSavingDocx = false;
+  int _currentImageIndex = 0;
+  double _progress = 0.0;
 
   @override
   void initState() {
     super.initState();
-    _titleCtrl.text = "Hujjat $_documentId";
-
-    // ✅ default tilni settings_box dan olamiz (bo'lmasa auto)
-    _lang = _readEffectiveOcrLang();
-
-    _runOcr();
+    _processAllImages();
   }
 
-  Future<void> _runOcr() async {
-    if (widget.images.isEmpty) return;
-
+  Future<void> _processAllImages() async {
     setState(() {
-      _loading = true;
-      _currentStep = 0;
-      _status = "Backend tekshirilmoqda...";
+      _isProcessing = true;
+      _progress = 0.0;
     });
 
-    try {
-      final api = ApiService();
+    final allText = StringBuffer();
 
-      // 🔥 YANGILANGAN: Batafsil health check
-      setState(() => _status = "Backend bilan bog'lanish... (60 sek kutish)");
-
-      bool ok = false;
-      String? errorMsg;
+    for (int i = 0; i < widget.images.length; i++) {
+      setState(() {
+        _currentImageIndex = i;
+        _progress = (i + 1) / widget.images.length;
+      });
 
       try {
-        ok = await api.checkHealth().timeout(
-          const Duration(seconds: 60),
-          onTimeout: () {
-            errorMsg =
-                "⏱️ Backend javob bermadi (60 sek timeout).\n\n"
-                "Ehtimol:\n"
-                "• Backend uyquda (Render free plan)\n"
-                "• URL noto'g'ri\n"
-                "• Internet yo'q\n\n"
-                "Qayta urinib ko'ring yoki 1-2 daqiqa kuting.";
-            return false;
-          },
-        );
-      } catch (e) {
-        errorMsg =
-            "❌ Backend bilan bog'lanish xatolik:\n$e\n\n"
-            "Tekshiring:\n"
-            "• Internet ulangan bo'lsin\n"
-            "• Backend URL to'g'ri bo'lsin (api_service.dart)";
-        ok = false;
-      }
+        print('⚡ OCR: image ${i + 1}/${widget.images.length}');
 
-      if (!ok) {
-        throw Exception(errorMsg ?? "Backend ishlamayapti.");
-      }
+        final text = await _localOcr.recognizeText(widget.images[i]);
+        final cleanedText = _localOcr.cleanText(text);
 
-      setState(() => _status = "✅ Backend tayyor!");
-      await Future.delayed(const Duration(milliseconds: 500));
-
-      final buffer = StringBuffer();
-
-      for (int i = 0; i < widget.images.length; i++) {
-        setState(() {
-          _currentStep = i + 1;
-          _status = "OCR: ${i + 1}/${widget.images.length}";
-        });
-
-        final res = await api.sendImageForOcr(
-          widget.images[i],
-          lang: _lang,
-          documentId: _documentId,
-          fastMode: _fastMode, // 🔥 YANGI
-        );
-
-        final text = res.text.trim();
-        if (text.isNotEmpty) buffer.writeln(text);
-        if (i != widget.images.length - 1) buffer.writeln("\n");
-
-        // 🔥 Agar auto bo'lsa va backend aniqlab bersa, keyingi sahifalar shu til bilan ketadi
-        if (_lang == "auto" && res.detectedLang != null) {
-          final detected = res.detectedLang!.trim();
-          if (_langs.containsKey(detected)) {
-            _lang = detected;
+        if (cleanedText.isNotEmpty) {
+          if (widget.images.length > 1) {
+            allText.writeln('--- Sahifa ${i + 1} ---\n');
           }
+          allText.writeln(cleanedText);
+          allText.writeln();
         }
-      }
 
-      _textCtrl.text = buffer.toString().trim();
-
-      if (_textCtrl.text.isEmpty && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("⚠️ OCR natijasi bo'sh chiqdi")),
-        );
+        print('✅ Image ${i + 1} processed: ${cleanedText.length} chars');
+      } catch (e) {
+        print('❌ Error: $e');
+        allText.writeln('--- Sahifa ${i + 1}: Xatolik ---\n');
       }
-    } catch (e) {
+    }
+
+    setState(() {
+      _extractedText = allText.toString().trim();
+      _isProcessing = false;
+    });
+
+    print('✅ OCR complete: ${_extractedText.length} total chars');
+  }
+
+  Future<void> _saveAsDocx() async {
+    if (_extractedText.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Matn topilmadi!')));
+      return;
+    }
+
+    setState(() => _isSavingDocx = true);
+
+    try {
+      print('📄 Creating DOCX...');
+
+      final docxFile = await _docxCreator.createSimpleDocx(_extractedText);
+
+      final docBox = Hive.box<DocumentModel>('documents_box');
+      final now = DateTime.now();
+
+      final document = DocumentModel(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        title: docxFile.path.split('/').last.replaceAll('.docx', ''),
+        path: docxFile.path,
+        createdAt: now,
+        size: await docxFile.length(),
+        type: 'docx',
+      );
+
+      await docBox.add(document);
+
+      print('✅ Document saved to Hive');
+
+      setState(() => _isSavingDocx = false);
+
       if (!mounted) return;
 
-      // 🔥 Batafsil xatolik xabari
-      String errorMessage = e.toString();
-
-      // "Exception: " prefiksini olib tashlash
-      if (errorMessage.startsWith("Exception: ")) {
-        errorMessage = errorMessage.substring(11);
-      }
-
-      showDialog(
+      await showDialog(
         context: context,
         builder:
-            (context) => AlertDialog(
-              title: const Text("❌ OCR Xatolik"),
-              content: SingleChildScrollView(child: Text(errorMessage)),
+            (_) => AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.green, size: 28),
+                  SizedBox(width: 12),
+                  Text('Tayyor!'),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: const Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(Icons.check, color: Colors.green, size: 20),
+                            SizedBox(width: 8),
+                            Text(
+                              'DOCX yaratildi',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Icon(Icons.check, color: Colors.green, size: 20),
+                            SizedBox(width: 8),
+                            Text('Documents ga qo\'shildi'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    docxFile.path.split('/').last,
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  ),
+                ],
+              ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("OK"),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.pop(context);
+                  },
+                  child: const Text('Documents ga'),
                 ),
-                if (errorMessage.contains("timeout") ||
-                    errorMessage.contains("Backend"))
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _runOcr(); // Qayta urinish
-                    },
-                    child: const Text("Qayta urinish"),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await OpenFile.open(docxFile.path);
+                  },
+                  icon: const Icon(Icons.open_in_new, size: 18),
+                  label: const Text('Ochish'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
                   ),
+                ),
+                ElevatedButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await Share.shareXFiles([
+                      XFile(docxFile.path),
+                    ], text: '📄 Scan');
+                  },
+                  icon: const Icon(Icons.share, size: 18),
+                  label: const Text('Ulashish'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
               ],
             ),
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _status = "";
-        });
-      }
-    }
-  }
+    } catch (e) {
+      print('❌ Error: $e');
 
-  Future<void> _createDocx() async {
-    final title =
-        _titleCtrl.text.trim().isEmpty
-            ? "Hujjat $_documentId"
-            : _titleCtrl.text.trim();
-
-    setState(() => _saving = true);
-
-    try {
-      await DocumentService().createDocxFromImages(
-        title: title,
-        images: widget.images,
-        lang: _lang,
-        documentId: _documentId,
-        fastMode: _fastMode, // 🔥 YANGI
-      );
+      setState(() => _isSavingDocx = false);
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ DOCX yaratildi va saqlandi")),
+        SnackBar(content: Text('Xatolik: $e'), backgroundColor: Colors.red),
       );
-
-      Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-
-      String errorMessage = e.toString();
-      if (errorMessage.startsWith("Exception: ")) {
-        errorMessage = errorMessage.substring(11);
-      }
-
-      showDialog(
-        context: context,
-        builder:
-            (context) => AlertDialog(
-              title: const Text("❌ DOCX Xatolik"),
-              content: Text(errorMessage),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("OK"),
-                ),
-              ],
-            ),
-      );
-    } finally {
-      if (mounted) setState(() => _saving = false);
     }
   }
 
   @override
-  void dispose() {
-    _titleCtrl.dispose();
-    _textCtrl.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('OCR - Matnni ajratish')),
+      body: _isProcessing ? _buildProcessingUI() : _buildResultUI(),
+    );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final total = widget.images.length;
-
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        title: const Text("OCR – Matnni ajratish"),
-        actions: [
-          IconButton(
-            tooltip: "Qayta OCR",
-            onPressed: (_loading || _saving) ? null : _runOcr,
-            icon: const Icon(Icons.refresh),
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+  Widget _buildProcessingUI() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            DropdownButtonFormField<String>(
-              value: _lang,
-              decoration: const InputDecoration(
-                labelText: "OCR tili",
-                border: OutlineInputBorder(),
-              ),
-              items:
-                  _langs.entries
-                      .map(
-                        (e) => DropdownMenuItem(
-                          value: e.key,
-                          child: Text(e.value),
-                        ),
-                      )
-                      .toList(),
-              onChanged:
-                  (_loading || _saving)
-                      ? null
-                      : (v) async {
-                        if (v == null) return;
-                        setState(() => _lang = v);
-                        await _runOcr();
-                      },
+            const CircularProgressIndicator(),
+            const SizedBox(height: 24),
+            const Text(
+              '⚡ Matn ajratilmoqda...',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 12),
-
-            // 🔥 YANGI: Fast Mode checkbox
-            CheckboxListTile(
-              title: const Text("Tez rejim"),
-              subtitle: const Text("Aniqlik biroz kamayadi, lekin 2x tezroq"),
-              value: _fastMode,
-              onChanged:
-                  (_loading || _saving)
-                      ? null
-                      : (value) {
-                        setState(() => _fastMode = value ?? true);
-                      },
-              controlAffinity: ListTileControlAffinity.leading,
+            const SizedBox(height: 16),
+            Text(
+              'Rasm ${_currentImageIndex + 1} / ${widget.images.length}',
+              style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
             ),
-            const SizedBox(height: 12),
-
-            TextField(
-              controller: _titleCtrl,
-              decoration: const InputDecoration(
-                labelText: "Hujjat nomi",
-                border: OutlineInputBorder(),
-              ),
+            const SizedBox(height: 16),
+            LinearProgressIndicator(value: _progress),
+            const SizedBox(height: 8),
+            Text(
+              '${(_progress * 100).toInt()}%',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
             ),
-            const SizedBox(height: 12),
-
-            if (_loading) ...[
-              LinearProgressIndicator(
-                value: total == 0 ? null : (_currentStep / total),
-              ),
-              const SizedBox(height: 8),
-              Text(_status),
-              const SizedBox(height: 12),
-            ],
-
-            Expanded(
-              child: TextField(
-                controller: _textCtrl,
-                readOnly: true,
-                maxLines: null,
-                expands: true,
-                decoration: const InputDecoration(
-                  labelText: "Ajratilgan matn (preview)",
-                  alignLabelWithHint: true,
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                onPressed: (_loading || _saving) ? null : _createDocx,
-                icon:
-                    _saving
-                        ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                        : const Icon(Icons.description),
-                label: Text(_saving ? "DOCX yaratilmoqda..." : "DOCX yaratish"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
+            const SizedBox(height: 24),
+            const Text(
+              '100% offline!',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildResultUI() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Card(
+            color: Colors.green.shade50,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Icon(Icons.check_circle, color: Colors.green, size: 32),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '✅ Matn ajratildi!',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          '${widget.images.length} ta rasm, ${_extractedText.length} belgi',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          const Text(
+            'Matn:',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            constraints: const BoxConstraints(maxHeight: 300),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                _extractedText.isEmpty ? 'Matn topilmadi' : _extractedText,
+                style: const TextStyle(fontSize: 15, height: 1.5),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          ElevatedButton.icon(
+            onPressed: _isSavingDocx ? null : _saveAsDocx,
+            icon:
+                _isSavingDocx
+                    ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: Colors.white,
+                      ),
+                    )
+                    : const Icon(Icons.save, size: 24),
+            label: Text(
+              _isSavingDocx ? 'Saqlanmoqda...' : '💾 DOCX ga saqlash',
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 18),
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+              elevation: 4,
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.shade200),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue),
+                    SizedBox(width: 8),
+                    Text(
+                      'Xususiyatlar',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 12),
+                Text(
+                  '✓ DOCX formatida\n✓ Documents ga qo\'shiladi\n✓ Word/Google Docs da ochiladi\n✓ 100% offline',
+                  style: TextStyle(fontSize: 13, height: 1.6),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _localOcr.dispose();
+    super.dispose();
   }
 }

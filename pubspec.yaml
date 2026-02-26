@@ -1,5 +1,5 @@
 name: smartarxiv
-description: SmartArxiv - OCR va hujjatlar boshqaruv ilovasi
+description: SmartArxiv - OCR va hujjatlar boshqaruv ilovasi (100% LOCAL)
 publish_to: "none"
 
 version: 1.0.0+1
@@ -56,7 +56,7 @@ dependencies:
   pdf: ^3.10.4
   printing: ^5.11.0
 
-  # File compression (zip, export)
+  # ⚡ FILE COMPRESSION (ZIP - for DOCX creation!)
   archive: ^3.4.9
 
   # Word to PDF conversion
@@ -67,8 +67,11 @@ dependencies:
   googleapis_auth: ^1.6.0
   http: ^1.2.0
 
-  # ⚡ ON-DEVICE OCR (YANGI VERSIYA - GRADLE BILAN ISHLAYDI!)
+  # ⚡ ON-DEVICE OCR
   google_mlkit_text_recognition: ^0.13.0
+
+  # ❌ DOCX packages - KERAK EMAS!
+  # archive package yetarli!
 
 dev_dependencies:
   flutter_test:

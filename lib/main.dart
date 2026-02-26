@@ -1,8 +1,10 @@
 // lib/main.dart
+// ⚡ MAIN FILE - 100% LOCAL OCR APP
+
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
-import 'config/app_colors.dart';
+import 'config/app_colors.dart'; // ← TUZATILDI: AppColors import
 import 'models/document_model.dart';
 import 'pages/documents_page.dart';
 import 'pages/profile_page.dart';
@@ -18,9 +20,7 @@ void main() async {
 
   await Hive.openBox<DocumentModel>('documents_box');
   await Hive.openBox('profile_box');
-  await Hive.openBox(
-    'settings_box',
-  ); // qolsa ham mayli (keyin kerak bo‘lishi mumkin)
+  await Hive.openBox('settings_box');
 
   runApp(const MyApp());
 }

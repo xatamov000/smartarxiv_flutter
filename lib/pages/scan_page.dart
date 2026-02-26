@@ -1,5 +1,5 @@
 // lib/pages/scan_page.dart
-// DEBUG VERSION - Kamera muammosini topish uchun
+// MINIMAL O'ZGARISH - Faqat OCR qismi yangilandi
 
 import 'dart:io';
 
@@ -44,7 +44,7 @@ class _ScanPageState extends State<ScanPage> {
       _pages.isEmpty ? null : _pages[_currentIndex.clamp(0, _pages.length - 1)];
 
   // ============================================================
-  // Camera - DEBUG VERSION
+  // Camera
   // ============================================================
   Future<void> _addFromCamera() async {
     print('🔵 [DEBUG] Kamera tugmasi bosildi');
@@ -212,9 +212,33 @@ class _ScanPageState extends State<ScanPage> {
                 ),
                 ListTile(
                   leading: const Icon(Icons.description, color: Colors.blue),
-                  title: const Text("Word (DOCX)"),
+                  title: Row(
+                    children: [
+                      const Text("Word (DOCX)"),
+                      const SizedBox(width: 8),
+                      // ⚡ LOCAL OCR badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text(
+                          '⚡ Local',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   subtitle: const Text(
-                    "OCR orqali matn ajratiladi va DOCX yaratiladi.",
+                    "OCR orqali matn ajratiladi (100% offline, tez!).",
                   ),
                   onTap: () {
                     Navigator.pop(context);
@@ -229,9 +253,16 @@ class _ScanPageState extends State<ScanPage> {
     );
   }
 
+  // ============================================================
+  // ⚡ YANGILANDI - OCR page ga o'tish
+  // ocr_page.dart ichida local OCR ishlatiladi
+  // ============================================================
   Future<void> _exportAsDocxFlow() async {
     final files = _pages.map((e) => e.file).toList();
     if (!mounted) return;
+
+    // OcrPage ga rasmlarni yuborish
+    // OcrPage ichida local OCR ishlatiladi
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => OcrPage(images: files)),
