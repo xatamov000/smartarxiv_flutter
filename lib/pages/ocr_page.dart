@@ -99,12 +99,11 @@ class _OcrPageState extends State<OcrPage> {
       final now = DateTime.now();
 
       final document = DocumentModel(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
         title: docxFile.path.split('/').last.replaceAll('.docx', ''),
-        path: docxFile.path,
+        filePath: docxFile.path,
         createdAt: now,
-        size: await docxFile.length(),
-        type: 'docx',
+        fileType: 'docx',
+        category: 'O\'quv', // yoki 'Boshqa'
       );
 
       await docBox.add(document);

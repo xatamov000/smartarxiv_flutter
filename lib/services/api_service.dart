@@ -49,7 +49,7 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  static const String _defaultBaseUrl = "http://10.38.221.170:8000";
+  static const String _defaultBaseUrl = "http://10.163.30.170:8000";
   String _readBaseUrl() {
     try {
       final box = Hive.box('settings_box');
@@ -426,5 +426,45 @@ class ApiService {
 
   void dispose() {
     _localOcr.dispose();
+  }
+
+  // ------------------------------------------------------------
+  // UNIVERSAL MERGE (PDF & DOCX)
+  // ------------------------------------------------------------
+  Future<List<int>> mergeFiles(List<File> files) async {
+    if (files.length < 2) {
+      throw Exception("Kamida 2 ta fayl kerak.");
+    }
+
+    try {
+      _refreshBaseUrl();
+      await _prewarmServer();
+
+      final multipartFiles = <MultipartFile>[];
+
+      for (final file in files) {
+        multipartFiles.add(
+          await MultipartFile.fromFile(
+            file.path,
+            filename: file.path.split('/').last,
+          ),
+        );
+      }
+
+      final formData = FormData.fromMap({"files": multipartFiles});
+
+      final res = await _dio.post(
+        "/merge",
+        data: formData,
+        options: Options(
+          responseType: ResponseType.bytes,
+          receiveTimeout: const Duration(seconds: 600),
+        ),
+      );
+
+      return List<int>.from(res.data);
+    } on DioException catch (e) {
+      throw Exception(_niceDioError(e));
+    }
   }
 }

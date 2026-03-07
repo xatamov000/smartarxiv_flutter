@@ -66,6 +66,14 @@ dependencies:
   googleapis: ^13.2.0
   googleapis_auth: ^1.6.0
   http: ^1.2.0
+  http_parser: ^4.0.2
+  xml: ^6.5.0
+  google_sign_in: ^6.2.1
+  extension_google_sign_in_as_googleapis_auth: ^2.0.12
+
+  #split
+  syncfusion_flutter_pdf: ^25.1.35
+
 
   # ⚡ ON-DEVICE OCR
   google_mlkit_text_recognition: ^0.13.0

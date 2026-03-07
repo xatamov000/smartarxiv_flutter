@@ -1,19 +1,16 @@
-// lib/services/compress_service.dart
-
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 
-/// Compression levels
 enum CompressionLevel { low, medium, high }
 
 class CompressService {
-  const CompressService._(); // Prevent instantiation
+  const CompressService._();
 
   // =========================
   // PUBLIC API
@@ -37,40 +34,39 @@ class CompressService {
     throw UnsupportedError('Unsupported file type: $ext');
   }
 
+  // 🔥 PARALLEL + PROGRESS VERSION
   static Future<List<String>> compressMultipleFiles(
     List<File> files,
     CompressionLevel level, {
     void Function(int current, int total)? onProgress,
+    int maxParallel = 3,
   }) async {
     final results = <String>[];
+    int completed = 0;
 
-    for (int i = 0; i < files.length; i++) {
-      final path = await compressFile(files[i], level);
-      results.add(path);
-      onProgress?.call(i + 1, files.length);
-    }
-
-    return results;
-  }
-
-  static Future<CompressionStats> getCompressionStats(
-    File originalFile,
-    File compressedFile,
-  ) async {
-    final originalSize = await originalFile.length();
-    final compressedSize = await compressedFile.length();
-
-    if (originalSize == 0) {
-      return CompressionStats(
-        originalSize: originalSize,
-        compressedSize: compressedSize,
+    // Parallel limit (CPU overload oldini olish)
+    final chunks = <List<File>>[];
+    for (int i = 0; i < files.length; i += maxParallel) {
+      chunks.add(
+        files.sublist(
+          i,
+          i + maxParallel > files.length ? files.length : i + maxParallel,
+        ),
       );
     }
 
-    return CompressionStats(
-      originalSize: originalSize,
-      compressedSize: compressedSize,
-    );
+    for (final chunk in chunks) {
+      final futures = chunk.map((f) => compressFile(f, level)).toList();
+
+      final compressed = await Future.wait(futures);
+
+      results.addAll(compressed);
+
+      completed += chunk.length;
+      onProgress?.call(completed, files.length);
+    }
+
+    return results;
   }
 
   // =========================
@@ -97,7 +93,7 @@ class CompressService {
         decoded,
         width: (decoded.width * settings.scale).round(),
         height: (decoded.height * settings.scale).round(),
-        interpolation: img.Interpolation.linear,
+        interpolation: img.Interpolation.average, // 🔥 tezroq
       );
     }
 
@@ -106,7 +102,6 @@ class CompressService {
     Uint8List outputBytes;
 
     if (ext == '.png') {
-      // PNG is lossless, keep format
       outputBytes = img.encodePng(processed);
     } else {
       outputBytes = img.encodeJpg(processed, quality: settings.quality);
@@ -121,45 +116,50 @@ class CompressService {
   }
 
   // =========================
-  // PDF COMPRESSION (SIMPLIFIED)
+  // PDF COMPRESSION (BACKEND)
   // =========================
 
   static Future<String> _compressPdf(
     File pdfFile,
     CompressionLevel level,
   ) async {
-    final originalBytes = await pdfFile.readAsBytes();
+    final uri = Uri.parse("http://10.163.30.170:8000/compress-pdf");
 
-    final pdf = pw.Document();
+    final request = http.MultipartRequest("POST", uri);
 
-    final quality = _pdfQuality(level);
+    request.fields['level'] = _levelName(level);
 
-    pdf.addPage(
-      pw.Page(
-        pageFormat: PdfPageFormat.a4,
-        build:
-            (_) => pw.Center(
-              child: pw.Text(
-                'Compressed PDF\n'
-                'Original size: ${_formatBytes(originalBytes.length)}\n'
-                'Quality factor: $quality',
-              ),
-            ),
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'file',
+        pdfFile.path,
+        contentType: MediaType('application', 'pdf'),
       ),
     );
 
-    final outputBytes = await pdf.save();
+    final response = await request.send();
 
-    return _writeOutputFile(
-      originalFile: pdfFile,
-      suffix: _levelName(level),
-      bytes: outputBytes,
-      extension: '.pdf',
+    if (response.statusCode != 200) {
+      final errorText = await response.stream.bytesToString();
+      throw Exception("Server error: $errorText");
+    }
+
+    final bytes = await response.stream.toBytes();
+
+    final dir = await getApplicationDocumentsDirectory();
+    final outputPath = p.join(
+      dir.path,
+      "${p.basenameWithoutExtension(pdfFile.path)}_compressed_${_levelName(level)}_${DateTime.now().millisecondsSinceEpoch}.pdf",
     );
+
+    final outFile = File(outputPath);
+    await outFile.writeAsBytes(bytes);
+
+    return outputPath;
   }
 
   // =========================
-  // DOC/DOCX (COPY PLACEHOLDER)
+  // DOC/DOCX (PLACEHOLDER)
   // =========================
 
   static Future<String> _compressDocument(
@@ -220,58 +220,12 @@ class CompressService {
     }
   }
 
-  static double _pdfQuality(CompressionLevel level) {
-    switch (level) {
-      case CompressionLevel.low:
-        return 0.9;
-      case CompressionLevel.medium:
-        return 0.7;
-      case CompressionLevel.high:
-        return 0.5;
-    }
-  }
-
   static String _levelName(CompressionLevel level) =>
       level.toString().split('.').last;
-
-  static String _formatBytes(int bytes) {
-    if (bytes <= 0) return '0 B';
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    }
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-  }
 }
 
 class _ImageSettings {
   final int quality;
   final double scale;
-
   const _ImageSettings(this.quality, this.scale);
-}
-
-/// Compression statistics
-class CompressionStats {
-  final int originalSize;
-  final int compressedSize;
-
-  const CompressionStats({
-    required this.originalSize,
-    required this.compressedSize,
-  });
-
-  int get savedBytes => originalSize - compressedSize;
-
-  int get savedPercent {
-    if (originalSize == 0) return 0;
-    return ((savedBytes / originalSize) * 100).round();
-  }
-
-  String get originalFormatted => CompressService._formatBytes(originalSize);
-
-  String get compressedFormatted =>
-      CompressService._formatBytes(compressedSize);
-
-  String get savedFormatted => CompressService._formatBytes(savedBytes);
 }

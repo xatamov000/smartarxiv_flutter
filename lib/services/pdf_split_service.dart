@@ -1,78 +1,66 @@
-// lib/services/pdf_split_service.dart
-// ✂️ PDF fayllarni sahifalarga bo'lish xizmati
-// 🔥 SODDA VERSIYA - Native PDF reader kerak bo'ladi
-
 import 'dart:io';
+import 'dart:ui';
+
+import 'package:path/path.dart' as path;
+import 'package:syncfusion_flutter_pdf/pdf.dart';
 
 class PdfSplitService {
-  /// PDF sahifalari sonini olish (taxminiy)
-  ///
-  /// Bu sodda versiya - faqat fayl o'lchamidan taxmin qiladi
-  /// Aniq natija uchun native PDF library kerak
-  static Future<int> getPageCount(File pdfFile) async {
-    try {
-      // PDF faylni o'qish
-      final bytes = await pdfFile.readAsBytes();
-      final content = String.fromCharCodes(bytes);
+  static Future<int> getPageCount(File file) async {
+    final bytes = await file.readAsBytes();
+    final document = PdfDocument(inputBytes: bytes);
 
-      // PDF da "/Type /Page" ni sanash (taxminiy)
-      final pagePattern = RegExp(r'/Type\s*/Page[^s]');
-      final matches = pagePattern.allMatches(content);
+    final count = document.pages.count;
 
-      int count = matches.length;
+    document.dispose();
+    return count;
+  }
 
-      // Agar topilmasa, fayl o'lchamidan taxmin qilish
-      if (count == 0) {
-        final sizeInKB = bytes.length / 1024;
-        // Taxminan har 100KB = 1 sahifa
-        count = (sizeInKB / 100).ceil();
-        if (count < 1) count = 1;
-      }
+  static Future<String> splitPdf({
+    required File file,
+    required int startPage,
+    required int endPage,
+    required Directory outputDir,
+  }) async {
+    final bytes = await file.readAsBytes();
+    final document = PdfDocument(inputBytes: bytes);
 
-      return count;
-    } catch (e) {
-      // Xatolik bo'lsa, 1 sahifa deb qaytarish
-      return 1;
+    final newDocument = PdfDocument();
+    newDocument.pages.removeAt(0);
+
+    for (int i = startPage - 1; i < endPage; i++) {
+      final originalPage = document.pages[i];
+      final Size pageSize = originalPage.size;
+
+      newDocument.pageSettings.size = pageSize;
+      newDocument.pageSettings.margins =
+          PdfMargins()
+            ..left = 0
+            ..top = 0
+            ..right = 0
+            ..bottom = 0;
+
+      final newPage = newDocument.pages.add();
+
+      newPage.graphics.drawPdfTemplate(
+        originalPage.createTemplate(),
+        Offset.zero,
+        pageSize,
+      );
     }
-  }
 
-  /// PDF faylni individual sahifalarga ajratadi
-  ///
-  /// ⚠️ ESLATMA: To'liq PDF split funksiyasi uchun native PDF library kerak
-  /// Hozircha bu funksiya faqat xabar qaytaradi
-  static Future<List<String>> splitPdfToPages(File pdfFile) async {
-    throw UnsupportedError(
-      "PDF split funksiyasi uchun quyidagi package lardan biri kerak:\n"
-      "- syncfusion_flutter_pdf (katta, lekin kuchli)\n"
-      "- native_pdf_renderer (tezroq)\n"
-      "- pdfx (alternatif)\n\n"
-      "Hozircha faqat sahifalar sonini ko'rish mumkin.",
+    final outputPath = path.join(
+      outputDir.path,
+      "split_${DateTime.now().millisecondsSinceEpoch}.pdf",
     );
-  }
 
-  /// PDF dan ma'lum sahifalarni ajratib olish
-  static Future<String> extractPages(
-    File pdfFile,
-    List<int> pageNumbers,
-  ) async {
-    throw UnsupportedError(
-      "PDF extract funksiyasi uchun native PDF library kerak.\n"
-      "Pubspec.yaml ga quyidagilardan birini qo'shing:\n"
-      "- syncfusion_flutter_pdf: ^27.1.57\n"
-      "- native_pdf_renderer: ^6.0.0\n"
-      "- pdfx: ^2.6.0",
-    );
-  }
+    final fileBytes = await newDocument.save();
 
-  /// PDF ni ma'lum oraliqda ajratish
-  static Future<String> splitRange(
-    File pdfFile,
-    int startPage,
-    int endPage,
-  ) async {
-    throw UnsupportedError(
-      "PDF range split uchun native PDF library kerak.\n"
-      "Bu funksiya ishga tushishi uchun package qo'shing.",
-    );
+    final newFile = File(outputPath);
+    await newFile.writeAsBytes(fileBytes);
+
+    document.dispose();
+    newDocument.dispose();
+
+    return outputPath;
   }
 }

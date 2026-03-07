@@ -1,5 +1,6 @@
 // lib/pages/documents_page.dart
 // 🔥 TO'LIQ ISHLAYDIGAN VERSIYA - Barcha services active
+// ✅ SELECTION + SWIPE DELETE + UNDO SYSTEM ADDED
 
 import 'dart:io';
 
@@ -47,6 +48,15 @@ class _DocumentsPageState extends State<DocumentsPage>
     'Boshqa',
   ];
 
+  // ================= SELECTION SYSTEM =================
+  bool _selectionMode = false;
+  final Set<String> _selectedPaths = {};
+  bool _dragSelecting = false;
+
+  // ================= UNDO SYSTEM =================
+  List<DocumentModel> _recentlyDeleted = [];
+  bool _undoActive = false;
+
   @override
   void initState() {
     super.initState();
@@ -58,7 +68,6 @@ class _DocumentsPageState extends State<DocumentsPage>
   @override
   void dispose() {
     _tabController.dispose();
-    _driveService.dispose();
     super.dispose();
   }
 
@@ -94,7 +103,7 @@ class _DocumentsPageState extends State<DocumentsPage>
           children: [
             _buildHeader(),
 
-            const SizedBox(height: 20), // Service va header orasida 20px
+            const SizedBox(height: 0), // Service va header orasida minimal
             // Services Grid
             _buildServicesGrid(),
 
@@ -157,13 +166,56 @@ class _DocumentsPageState extends State<DocumentsPage>
   }
 
   // ============================================================
-  // HEADER
+  // HEADER (with selection mode support)
   // ============================================================
 
   Widget _buildHeader() {
+    if (_selectionMode) {
+      return Container(
+        width: double.infinity,
+        padding: EdgeInsets.fromLTRB(
+          20,
+          MediaQuery.of(context).padding.top + 12,
+          20,
+          12,
+        ),
+        decoration: const BoxDecoration(color: AppColors.primary),
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.white),
+              onPressed: () {
+                setState(() {
+                  _selectionMode = false;
+                  _selectedPaths.clear();
+                });
+              },
+            ),
+            Text(
+              '${_selectedPaths.length} tanlandi',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.select_all, color: Colors.white),
+              onPressed: _selectAll,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete, color: Colors.white),
+              onPressed: _deleteSelectedDocuments,
+            ),
+          ],
+        ),
+      );
+    }
+
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 44, 20, 16), // 🔥 Kamaytirildi
+      padding: const EdgeInsets.fromLTRB(20, 44, 20, 2),
       decoration: const BoxDecoration(color: AppColors.primary),
       child: Row(
         children: [
@@ -244,15 +296,15 @@ class _DocumentsPageState extends State<DocumentsPage>
     ];
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 4,
-          childAspectRatio: 0.9, // 🔥 Biroz kichikroq
+          childAspectRatio: 1.05,
           crossAxisSpacing: 10,
-          mainAxisSpacing: 10,
+          mainAxisSpacing: 2,
         ),
         itemCount: services.length,
         itemBuilder: (context, index) {
@@ -281,25 +333,18 @@ class _DocumentsPageState extends State<DocumentsPage>
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Container(
-            width: 48, // 🔥 Kichikroq: 56 → 48
+            width: 48,
             height: 48,
             decoration: BoxDecoration(
               color: color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(
-              icon,
-              color: color,
-              size: 24, // 🔥 Kichikroq: 28 → 24
-            ),
+            child: Icon(icon, color: color, size: 24),
           ),
           const SizedBox(height: 6),
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 10, // 🔥 Kichikroq: 11 → 10
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -368,79 +413,137 @@ class _DocumentsPageState extends State<DocumentsPage>
     return _buildListView(filtered);
   }
 
+  // ✅ UPDATED: Drag selection enabled
   Widget _buildListView(List<DocumentModel> docs) {
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: docs.length,
-      itemBuilder: (context, index) {
-        final doc = docs[index];
-        return _buildDocumentListItem(doc);
+    return GestureDetector(
+      onPanStart: (_) {
+        if (_selectionMode) _dragSelecting = true;
       },
+      onPanEnd: (_) {
+        _dragSelecting = false;
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: docs.length,
+        itemBuilder: (context, index) {
+          final doc = docs[index];
+
+          return Listener(
+            onPointerMove: (_) {
+              if (_selectionMode && _dragSelecting) {
+                _selectedPaths.add(doc.filePath);
+                setState(() {});
+              }
+            },
+            child: _buildDocumentListItem(doc),
+          );
+        },
+      ),
     );
   }
 
+  // ✅ UPDATED: Swipe to delete + Selection support
   Widget _buildDocumentListItem(DocumentModel doc) {
-    return Card(
+    final isSelected = _selectedPaths.contains(doc.filePath);
+
+    return Dismissible(
       key: ValueKey(doc.filePath),
-      margin: const EdgeInsets.only(bottom: 8),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
+      direction:
+          _selectionMode ? DismissDirection.none : DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        color: Colors.red,
+        child: const Icon(Icons.delete, color: Colors.white),
       ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        onTap: () => _openDocument(doc),
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: _getFileTypeColor(doc.resolvedType).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            _getFileTypeIcon(doc.resolvedType),
-            color: _getFileTypeColor(doc.resolvedType),
-            size: 24,
+      onDismissed: (_) => _deleteWithUndo([doc]),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? Colors.blue : Colors.grey.shade200,
+            width: isSelected ? 2 : 1,
           ),
         ),
-        title: Text(
-          doc.title,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        ),
-        subtitle: Padding(
-          padding: const EdgeInsets.only(top: 4),
-          child: Text(
-            '${_getFileSize(doc.filePath)} • ${_formatDateTime(doc.createdAt)}',
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 8,
           ),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            IconButton(
-              icon: Icon(
-                doc.isFavorite ? Icons.star : Icons.star_border,
-                color: doc.isFavorite ? Colors.amber : Colors.grey,
-                size: 20,
-              ),
-              onPressed: () => _toggleFavorite(doc),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
+          onTap: () {
+            if (_selectionMode) {
+              _toggleSelection(doc);
+            } else {
+              _openDocument(doc);
+            }
+          },
+          onLongPress: () {
+            setState(() {
+              _selectionMode = true;
+              _selectedPaths.add(doc.filePath);
+            });
+          },
+          leading: Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: _getFileTypeColor(doc.resolvedType).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            const SizedBox(width: 8),
-            PopupMenuButton(
-              icon: Icon(
-                Icons.more_vert,
-                size: 20,
-                color: Colors.grey.shade700,
-              ),
-              itemBuilder: (context) => _buildDocumentMenu(doc),
-              onSelected: (value) => _handleMenuAction(value, doc),
+            child: Icon(
+              _getFileTypeIcon(doc.resolvedType),
+              color: _getFileTypeColor(doc.resolvedType),
+              size: 24,
             ),
-          ],
+          ),
+          title: Text(
+            doc.title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              '${_getFileSize(doc.filePath)} • ${_formatDateTime(doc.createdAt)}',
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            ),
+          ),
+          trailing:
+              _selectionMode
+                  ? Icon(
+                    isSelected
+                        ? Icons.check_circle
+                        : Icons.radio_button_unchecked,
+                    color: isSelected ? Colors.blue : Colors.grey,
+                  )
+                  : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(
+                          doc.isFavorite ? Icons.star : Icons.star_border,
+                          color: doc.isFavorite ? Colors.amber : Colors.grey,
+                          size: 20,
+                        ),
+                        onPressed: () => _toggleFavorite(doc),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      ),
+                      const SizedBox(width: 8),
+                      PopupMenuButton(
+                        icon: Icon(
+                          Icons.more_vert,
+                          size: 20,
+                          color: Colors.grey.shade700,
+                        ),
+                        itemBuilder: (context) => _buildDocumentMenu(doc),
+                        onSelected: (value) => _handleMenuAction(value, doc),
+                      ),
+                    ],
+                  ),
         ),
       ),
     );
@@ -524,6 +627,76 @@ class _DocumentsPageState extends State<DocumentsPage>
         _deleteDocument(doc);
         break;
     }
+  }
+
+  // ============================================================
+  // SELECTION & UNDO METHODS
+  // ============================================================
+
+  void _toggleSelection(DocumentModel doc) {
+    setState(() {
+      if (_selectedPaths.contains(doc.filePath)) {
+        _selectedPaths.remove(doc.filePath);
+        if (_selectedPaths.isEmpty) {
+          _selectionMode = false;
+        }
+      } else {
+        _selectedPaths.add(doc.filePath);
+      }
+    });
+  }
+
+  void _selectAll() async {
+    final box = await _boxFuture;
+    setState(() {
+      _selectedPaths.clear();
+      for (var doc in box.values) {
+        _selectedPaths.add(doc.filePath);
+      }
+    });
+  }
+
+  Future<void> _deleteSelectedDocuments() async {
+    final box = await _boxFuture;
+
+    final docsToDelete =
+        box.values
+            .where((doc) => _selectedPaths.contains(doc.filePath))
+            .toList();
+
+    _deleteWithUndo(docsToDelete);
+
+    setState(() {
+      _selectionMode = false;
+      _selectedPaths.clear();
+    });
+  }
+
+  Future<void> _deleteWithUndo(List<DocumentModel> docs) async {
+    final box = await _boxFuture;
+
+    _recentlyDeleted = docs;
+
+    for (var doc in docs) {
+      await doc.delete();
+    }
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text("${docs.length} ta fayl o'chirildi"),
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: "Undo",
+          onPressed: () async {
+            for (var doc in _recentlyDeleted) {
+              await box.add(doc);
+            }
+          },
+        ),
+      ),
+    );
   }
 
   // ============================================================
@@ -859,43 +1032,63 @@ class _DocumentsPageState extends State<DocumentsPage>
 
   Future<void> _mergeFiles() async {
     try {
+      // PDF yoki DOCX tanlash
       final result = await FilePicker.platform.pickFiles(
         allowMultiple: true,
         type: FileType.custom,
-        allowedExtensions: ['pdf'],
+        allowedExtensions: ['pdf', 'docx'],
       );
 
       if (result == null || result.files.length < 2) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Kamida 2 ta PDF fayl tanlang")),
+            const SnackBar(content: Text("Kamida 2 ta fayl tanlang")),
+          );
+        }
+        return;
+      }
+
+      final files = result.files.map((f) => File(f.path!)).toList();
+
+      // Format tekshirish (aralash bo‘lmasligi kerak)
+      final extensions =
+          files.map((f) => path.extension(f.path).toLowerCase()).toSet();
+
+      if (extensions.length != 1) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Aralash formatlarni merge qilib bo'lmaydi."),
+            ),
           );
         }
         return;
       }
 
       if (!mounted) return;
+      _showLoading("Fayllar birlashtirilmoqda...");
 
-      _showLoading("PDF'lar birlashtirilmoqda...");
+      final api = ApiService();
+      final mergedBytes = await api.mergeFiles(files);
 
-      // Merge PDFs (simplified - real implementation needs pdf package)
-      final firstFile = File(result.files.first.path!);
       final dir = await getApplicationDocumentsDirectory();
+      final ext = extensions.first.replaceAll('.', '');
+
       final mergedPath = path.join(
         dir.path,
-        'Merged_${DateTime.now().millisecondsSinceEpoch}.pdf',
+        'Merged_${DateTime.now().millisecondsSinceEpoch}.$ext',
       );
 
-      // For now, just copy first file (real merge needs pdf package)
-      await firstFile.copy(mergedPath);
+      final mergedFile = File(mergedPath);
+      await mergedFile.writeAsBytes(mergedBytes, flush: true);
 
-      // Save to Hive
+      // Hive ga saqlash
       final box = await _boxFuture;
       final doc = DocumentModel(
         title: path.basename(mergedPath),
         filePath: mergedPath,
         createdAt: DateTime.now(),
-        fileType: 'pdf',
+        fileType: ext,
         category: 'Boshqa',
       );
       await box.add(doc);
@@ -906,7 +1099,7 @@ class _DocumentsPageState extends State<DocumentsPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            "⚠️ ${result.files.length} ta PDF tanlandi.\nTo'liq merge uchun pdf package kerak.",
+            "✅ ${files.length} ta fayl muvaffaqiyatli birlashtirildi",
           ),
           action: SnackBarAction(
             label: "Ochish",
@@ -925,62 +1118,78 @@ class _DocumentsPageState extends State<DocumentsPage>
 
   Future<void> _uploadToDrive() async {
     try {
-      // Fayl tanlash
       final result = await FilePicker.platform.pickFiles(allowMultiple: true);
 
-      if (result == null || result.files.isEmpty) return;
+      if (result == null) return;
 
-      if (!mounted) return;
+      final driveService = GoogleDriveService();
 
-      // Google Drive credentials so'rash
-      final credentials = await _showDriveCredentialsDialog();
-      if (credentials == null) return;
+      final signedIn = await driveService.signIn();
 
-      _showLoading("Google Drive ga ulanmoqda...");
-
-      // Autentifikatsiya
-      final authenticated = await _driveService.authenticate(credentials);
-
-      if (!authenticated) {
-        if (!mounted) return;
-        Navigator.pop(context);
+      if (!signedIn) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("❌ Drive ga ulanish xatolik")),
+          const SnackBar(content: Text("Google login bekor qilindi")),
         );
         return;
       }
 
-      if (!mounted) return;
-      Navigator.pop(context);
+      double progress = 0;
 
-      _showLoading("Fayllar yuklanmoqda... 0/${result.files.length}");
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) {
+          return StatefulBuilder(
+            builder: (context, setStateDialog) {
+              return AlertDialog(
+                title: const Text("Drive upload"),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LinearProgressIndicator(value: progress),
+                    const SizedBox(height: 10),
+                    Text("${(progress * 100).toStringAsFixed(0)}%"),
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      );
 
-      // Fayllarni yuklash
-      final files = result.files.map((f) => File(f.path!)).toList();
+      for (final file in result.files) {
+        final fileId = await driveService.uploadFile(File(file.path!), (p) {
+          progress = p;
+        });
 
-      int uploaded = 0;
-      for (final file in files) {
-        await _driveService.uploadFile(file, folderName: 'SmartArxiv');
-        uploaded++;
+        if (fileId != null) {
+          final link = await driveService.getShareableLink(fileId);
 
-        if (mounted) {
-          Navigator.pop(context);
-          _showLoading("Fayllar yuklanmoqda... $uploaded/${files.length}");
+          print("Drive link: $link");
+
+          if (mounted && link != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text("Fayl yuklandi"),
+                action: SnackBarAction(
+                  label: "Link",
+                  onPressed: () {
+                    Share.share(link);
+                  },
+                ),
+              ),
+            );
+          }
         }
       }
 
-      if (!mounted) return;
+      Navigator.pop(context);
+    } catch (e) {
       Navigator.pop(context);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("✅ ${files.length} ta fayl Drive ga yuklandi")),
-      );
-    } catch (e) {
-      if (!mounted) return;
-      Navigator.pop(context);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("❌ Xatolik: $e")));
+      ).showSnackBar(SnackBar(content: Text("Upload xato: $e")));
     }
   }
 
@@ -1094,69 +1303,134 @@ class _DocumentsPageState extends State<DocumentsPage>
 
   Future<void> _splitPdf() async {
     try {
-      // PDF fayl tanlash
-      final result = await FilePicker.platform.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf'],
-        allowMultiple: false,
-      );
+      // 1) Manba tanlash
+      final source = await _showSourceSelectionDialog();
+      if (source == null) return;
 
-      if (result == null || result.files.isEmpty) return;
+      File? pdfFile;
 
-      final pdfFile = File(result.files.first.path!);
+      if (source == 'documents') {
+        final box = await _boxFuture;
+        final docs =
+            box.values
+                .where((d) => (d.fileType ?? '').toLowerCase() == 'pdf')
+                .toList();
+
+        if (docs.isEmpty) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("❌ Documents da PDF topilmadi")),
+          );
+          return;
+        }
+
+        final selectedDocs = await _showDocumentSelectionDialog(docs);
+        if (selectedDocs == null || selectedDocs.isEmpty) return;
+
+        pdfFile = File(selectedDocs.first.filePath);
+      } else {
+        // Ichki xotira
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: ['pdf'],
+        );
+
+        if (result == null) return;
+
+        pdfFile = File(result.files.single.path!);
+      }
 
       if (!mounted) return;
-      _showLoading("PDF tekshirilmoqda...");
 
-      // Sahifalar sonini olish (taxminiy)
-      final pageCount = await PdfSplitService.getPageCount(pdfFile);
+      // 2) Sahifalar soni
+      final pages = await PdfSplitService.getPageCount(pdfFile);
 
-      if (!mounted) return;
-      Navigator.pop(context);
+      final startController = TextEditingController(text: "1");
+      final endController = TextEditingController(text: pages.toString());
 
-      // Foydalanuvchiga ma'lumot berish
-      showDialog(
+      final confirmed = await showDialog<bool>(
         context: context,
         builder:
             (context) => AlertDialog(
               title: const Text("PDF Split"),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Tanlangan PDF: ${path.basename(pdfFile.path)}"),
-                  const SizedBox(height: 8),
-                  Text("Taxminiy sahifalar: ~$pageCount"),
-                  const SizedBox(height: 16),
-                  const Text(
-                    "⚠️ PDF split funksiyasi uchun qo'shimcha package kerak:",
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  Text("Jami sahifalar: $pages"),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: startController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: "Boshlanish sahifasi",
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    "1. syncfusion_flutter_pdf\n"
-                    "2. native_pdf_renderer\n"
-                    "3. pdfx\n\n"
-                    "Birini pubspec.yaml ga qo'shing va qayta build qiling.",
-                    style: TextStyle(fontSize: 11),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: endController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: "Tugash sahifasi",
+                      border: OutlineInputBorder(),
+                    ),
                   ),
                 ],
               ),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Yopish"),
+                  onPressed: () => Navigator.pop(context, false),
+                  child: const Text("Bekor"),
                 ),
                 ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    // Faylni ochish (view qilish)
-                    OpenFile.open(pdfFile.path);
-                  },
-                  child: const Text("PDF ni ochish"),
+                  onPressed: () => Navigator.pop(context, true),
+                  child: const Text("Split"),
                 ),
               ],
             ),
+      );
+
+      if (confirmed != true) return;
+
+      final start = int.parse(startController.text);
+      final end = int.parse(endController.text);
+
+      if (start < 1 || end > pages || start > end) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("❌ Noto‘g‘ri sahifa diapazoni")),
+        );
+        return;
+      }
+
+      if (!mounted) return;
+      _showLoading("PDF bo‘linmoqda...");
+
+      final dir = await getApplicationDocumentsDirectory();
+
+      final newPath = await PdfSplitService.splitPdf(
+        file: pdfFile,
+        startPage: start,
+        endPage: end,
+        outputDir: dir,
+      );
+
+      final box = await _boxFuture;
+
+      final doc = DocumentModel(
+        title: path.basename(newPath),
+        filePath: newPath,
+        createdAt: DateTime.now(),
+        fileType: 'pdf',
+        category: 'Boshqa',
+      );
+
+      await box.add(doc);
+
+      if (!mounted) return;
+      Navigator.pop(context);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("✅ PDF muvaffaqiyatli bo‘lindi")),
       );
     } catch (e) {
       if (!mounted) return;
