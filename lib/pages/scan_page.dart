@@ -216,18 +216,18 @@ class _ScanPageState extends State<ScanPage> {
                     children: [
                       const Text("Word (DOCX)"),
                       const SizedBox(width: 8),
-                      // ⚡ LOCAL OCR badge
+                      // OCR badge
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.green,
+                          color: Colors.blue,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Text(
-                          '⚡ Local',
+                          '🖥️ Server OCR',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -238,7 +238,7 @@ class _ScanPageState extends State<ScanPage> {
                     ],
                   ),
                   subtitle: const Text(
-                    "OCR orqali matn ajratiladi (100% offline, tez!).",
+                    "Server OCR — yuqori sifat. Offline bo'lsa local.",
                   ),
                   onTap: () {
                     Navigator.pop(context);

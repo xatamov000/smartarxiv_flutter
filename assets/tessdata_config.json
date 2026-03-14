@@ -1,6 +1,7 @@
 {
   "files": [
     "eng.traineddata",
+    "rus.traineddata",
     "uzb.traineddata",
     "uzb_cyrl.traineddata"
   ]

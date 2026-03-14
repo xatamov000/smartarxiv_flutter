@@ -11,6 +11,8 @@ dependencies:
   flutter:
     sdk: flutter
 
+  flutter_tesseract_ocr: ^0.4.23
+
   # iOS UI icons
   cupertino_icons: ^1.0.2
 
@@ -97,6 +99,9 @@ flutter:
   assets:
     - assets/icons/
     - assets/images/
+    - assets/tessdata_config.json
+    - assets/fonts/
+    - assets/tessdata/
 
   fonts:
     - family: Roboto
