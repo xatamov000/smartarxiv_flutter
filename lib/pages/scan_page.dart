@@ -1,5 +1,4 @@
 // lib/pages/scan_page.dart
-// MINIMAL O'ZGARISH - Faqat OCR qismi yangilandi
 
 import 'dart:io';
 
@@ -16,7 +15,7 @@ import 'package:share_plus/share_plus.dart';
 import '../config/app_colors.dart';
 import '../services/permission_service.dart';
 import 'image_edit_page.dart';
-import 'ocr_page.dart';
+import 'ocr_result_page.dart';
 import 'widgets/bottom_nav.dart';
 
 class ScanPage extends StatefulWidget {
@@ -47,52 +46,52 @@ class _ScanPageState extends State<ScanPage> {
   // Camera
   // ============================================================
   Future<void> _addFromCamera() async {
-    print('🔵 [DEBUG] Kamera tugmasi bosildi');
+    print('🔵 [DEBUG] Camera button pressed');
 
     try {
-      print('🔵 [DEBUG] Permission so\'ralyapti...');
+      print('🔵 [DEBUG] Requesting permission...');
       final ok = await PermissionService.requestCamera();
-      print('🔵 [DEBUG] Permission natijasi: $ok');
+      print('🔵 [DEBUG] Permission result: $ok');
 
       if (!ok) {
-        print('🔴 [DEBUG] Ruxsat berilmadi');
+        print('🔴 [DEBUG] Permission denied');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Kamera ruxsati berilmadi')),
+            const SnackBar(content: Text('Camera permission denied')),
           );
         }
         return;
       }
 
-      print('🔵 [DEBUG] ImagePicker ochilmoqda...');
+      print('🔵 [DEBUG] Opening ImagePicker...');
       final img = await _picker.pickImage(
         source: ImageSource.camera,
         imageQuality: 90,
       );
 
-      print('🔵 [DEBUG] ImagePicker natijasi: ${img?.path ?? "null"}');
+      print('🔵 [DEBUG] ImagePicker result: ${img?.path ?? "null"}');
 
       if (img == null) {
-        print('🟡 [DEBUG] Foydalanuvchi bekor qildi');
+        print('🟡 [DEBUG] User cancelled');
         return;
       }
 
-      print('🟢 [DEBUG] Rasm muvaffaqiyatli olindi: ${img.path}');
+      print('🟢 [DEBUG] Image captured successfully: ${img.path}');
 
       setState(() {
         _pages.add(_ScanItem(file: File(img.path), allowCrop: true));
         _currentIndex = _pages.length - 1;
       });
 
-      print('🟢 [DEBUG] Rasm ro\'yxatga qo\'shildi');
+      print('🟢 [DEBUG] Image added to list');
     } catch (e, stackTrace) {
-      print('🔴 [DEBUG] XATOLIK: $e');
+      print('🔴 [DEBUG] ERROR: $e');
       print('🔴 [DEBUG] Stack trace: $stackTrace');
 
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(SnackBar(content: Text('Xatolik: $e')));
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -195,15 +194,15 @@ class _ScanPageState extends State<ScanPage> {
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  "Qaysi formatda yaratamiz?",
+                  "Select export format",
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 14),
                 ListTile(
                   leading: const Icon(Icons.picture_as_pdf, color: Colors.red),
-                  title: const Text("PDF (scan ko'rinish)"),
+                  title: const Text("PDF (scan layout)"),
                   subtitle: const Text(
-                    "Rasmlar sahifalarga joylanadi. Ko'rinish 100% saqlanadi.",
+                    "Images are placed on pages. Layout is preserved 100%.",
                   ),
                   onTap: () {
                     Navigator.pop(context);
@@ -227,7 +226,7 @@ class _ScanPageState extends State<ScanPage> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Text(
-                          '🖥️ Server OCR',
+                          'Server OCR',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 10,
@@ -238,7 +237,7 @@ class _ScanPageState extends State<ScanPage> {
                     ],
                   ),
                   subtitle: const Text(
-                    "Server OCR — yuqori sifat. Offline bo'lsa local.",
+                    "Server OCR - high quality. Image is compressed and uploaded.",
                   ),
                   onTap: () {
                     Navigator.pop(context);
@@ -254,18 +253,15 @@ class _ScanPageState extends State<ScanPage> {
   }
 
   // ============================================================
-  // ⚡ YANGILANDI - OCR page ga o'tish
-  // ocr_page.dart ichida local OCR ishlatiladi
+  // Backend OCR â€” rasmlar siqiladi va serverga yuboriladi
   // ============================================================
   Future<void> _exportAsDocxFlow() async {
     final files = _pages.map((e) => e.file).toList();
     if (!mounted) return;
 
-    // OcrPage ga rasmlarni yuborish
-    // OcrPage ichida local OCR ishlatiladi
     await Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => OcrPage(images: files)),
+      MaterialPageRoute(builder: (_) => OcrResultPage(images: files)),
     );
   }
 
@@ -307,28 +303,28 @@ class _ScanPageState extends State<ScanPage> {
         context: context,
         builder: (_) {
           return AlertDialog(
-            title: const Text("✅ PDF tayyor"),
-            content: Text("Fayl saqlandi:\n${outFile.path}"),
+            title: const Text("PDF created"),
+            content: Text("File saved:\n${outFile.path}"),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text("Yopish"),
+                child: const Text("Close"),
               ),
               TextButton(
                 onPressed: () async {
                   Navigator.pop(context);
                   await OpenFile.open(outFile.path);
                 },
-                child: const Text("Ochish"),
+                child: const Text("Open"),
               ),
               TextButton(
                 onPressed: () async {
                   Navigator.pop(context);
                   await Share.shareXFiles([
                     XFile(outFile.path),
-                  ], text: "📄 PDF fayl");
+                  ], text: "PDF file");
                 },
-                child: const Text("Ulashish"),
+                child: const Text("Share"),
               ),
             ],
           );
@@ -338,7 +334,7 @@ class _ScanPageState extends State<ScanPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("❌ PDF yaratishda xatolik: $e")));
+      ).showSnackBar(SnackBar(content: Text("Error creating PDF: $e")));
     } finally {
       if (mounted) setState(() => _exporting = false);
     }
@@ -389,7 +385,7 @@ class _ScanPageState extends State<ScanPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "Skaynerlash ⚡",
+            "Scanning",
             style: TextStyle(
               color: Colors.white,
               fontSize: 28,
@@ -398,7 +394,7 @@ class _ScanPageState extends State<ScanPage> {
           ),
           SizedBox(height: 6),
           Text(
-            "Hujjatni skanerlash yoki yuklash",
+            "Scan or upload a document",
             style: TextStyle(color: Colors.white70, fontSize: 15),
           ),
         ],
@@ -411,7 +407,7 @@ class _ScanPageState extends State<ScanPage> {
       children: [
         GestureDetector(onTap: _addFromCamera, child: _mainScanCard()),
         const SizedBox(height: 20),
-        const Text("yoki"),
+        const Text("or"),
         const SizedBox(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -420,7 +416,7 @@ class _ScanPageState extends State<ScanPage> {
               onTap: _pickFiles,
               child: _uploadOption(
                 icon: Icons.upload_file,
-                label: "Fayldan yuklash",
+                label: "Upload File",
                 color: Colors.greenAccent,
               ),
             ),
@@ -428,7 +424,7 @@ class _ScanPageState extends State<ScanPage> {
               onTap: _pickGalleryImages,
               child: _uploadOption(
                 icon: Icons.image,
-                label: "Galereyadan",
+                label: "From Gallery",
                 color: Colors.pinkAccent,
               ),
             ),
@@ -502,9 +498,7 @@ class _ScanPageState extends State<ScanPage> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                       : const Icon(Icons.download),
-              label: Text(
-                _exporting ? "Yaratilmoqda..." : "Yaratish (PDF / DOCX)",
-              ),
+              label: Text(_exporting ? "Creating..." : "Create (PDF / DOCX)"),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primary,
                 foregroundColor: Colors.white,
@@ -533,7 +527,7 @@ class _ScanPageState extends State<ScanPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "Maslahatlar:",
+            "Tips:",
             style: TextStyle(
               color: Colors.orange,
               fontWeight: FontWeight.bold,
@@ -541,13 +535,13 @@ class _ScanPageState extends State<ScanPage> {
             ),
           ),
           SizedBox(height: 10),
-          Text("✓ Hujjat to'liq ko'rinishda bo'lsin"),
+          Text("Ensure the document is fully visible"),
           SizedBox(height: 6),
-          Text("✓ Yoruqlik yetarli bo'lsin"),
+          Text("Use sufficient lighting"),
           SizedBox(height: 6),
-          Text("✓ Telefonni barqaror ushlang"),
+          Text("Hold the device steady"),
           SizedBox(height: 6),
-          Text("✓ Hujjat tekis joyda bo'lsin"),
+          Text("Place the document on a flat surface"),
         ],
       ),
     );
@@ -574,7 +568,7 @@ class _ScanPageState extends State<ScanPage> {
           const Icon(Icons.camera_alt, color: Colors.white, size: 60),
           const SizedBox(height: 16),
           const Text(
-            "Hujjatni skanerlash",
+            "Scan Document",
             style: TextStyle(
               color: Colors.white,
               fontSize: 18,
@@ -583,13 +577,13 @@ class _ScanPageState extends State<ScanPage> {
           ),
           const SizedBox(height: 6),
           const Text(
-            "Kamera orqali yuqori sifatli skan",
+            "High-quality scanning using camera",
             style: TextStyle(color: Colors.white70, fontSize: 14),
           ),
           const SizedBox(height: 22),
           ElevatedButton(
             onPressed: _addFromCamera,
-            child: const Text("Kamerani ochish"),
+            child: const Text("Open Camera"),
           ),
         ],
       ),

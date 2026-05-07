@@ -1,11 +1,11 @@
 // lib/pages/ocr_page.dart
-// 🎯 SMART OCR PAGE v4
+// SMART OCR PAGE v4
 //
 // FLOW:
-//   1. Local OCR → matn preview (tez, offline)
+//   1. Local OCR â†’ matn preview (tez, offline)
 //   2. "DOCX saqlash" bosilganda:
-//      a) 5s ichida backend bormi? → HA: /ocr/docx (ML model)
-//      b) Backend yo'q? → Offline Smart DOCX (noise filter + merge + split)
+//      a) 5s ichida backend bormi? â†’ HA: /ocr/docx (ML model)
+//      b) Backend yo'q? â†’ Offline Smart DOCX (noise filter + merge + split)
 
 import 'dart:io';
 
@@ -39,7 +39,7 @@ class _OcrPageState extends State<OcrPage> {
   int _currentImageIndex = 0;
   double _progress = 0.0;
   String _savingStatus = '';
-  String _ocrMode = ''; // 'server' yoki 'local'
+  String _ocrMode = ''; // 'server' or 'local'
 
   @override
   void initState() {
@@ -48,7 +48,7 @@ class _OcrPageState extends State<OcrPage> {
   }
 
   // ============================================================
-  // 1) OCR — Server primary, Local fallback
+  // 1) OCR - Server primary, Local fallback
   // ============================================================
 
   Future<void> _processAllImages() async {
@@ -61,9 +61,13 @@ class _OcrPageState extends State<OcrPage> {
     // Avval server borligini tekshiramiz
     bool useServer = false;
     try {
-      print('🔍 Backend OCR tekshirilmoqda...');
+      print('Checking backend OCR...');
       useServer = await _apiService.checkHealth();
-      print(useServer ? '✅ Server OCR ishlatiladi' : '⚠️ Server yo\'q, local OCR');
+      print(
+        useServer
+            ? 'Server OCR will be used'
+            : '⚠️ Server unavailable, using local OCR',
+      );
     } catch (_) {
       useServer = false;
     }
@@ -85,12 +89,14 @@ class _OcrPageState extends State<OcrPage> {
         String text;
 
         if (useServer) {
-          // SERVER OCR — yuqori sifat
+          // SERVER OCR — high quality
           final result = await _apiService.sendImageForOcr(widget.images[i]);
           text = result.text;
-          print('✅ Server OCR: ${text.length} chars, confidence: ${result.confidence}');
+          print(
+            '✅ Server OCR: ${text.length} chars, confidence: ${result.confidence}',
+          );
         } else {
-          // LOCAL OCR — fallback
+          // LOCAL OCR — fallbackk
           text = await _localOcr.recognizeText(widget.images[i]);
         }
 
@@ -98,12 +104,12 @@ class _OcrPageState extends State<OcrPage> {
 
         if (cleanedText.isNotEmpty) {
           if (widget.images.length > 1) {
-            allText.writeln('--- Sahifa ${i + 1} ---\n');
+            allText.writeln('--- Page  ${i + 1} ---\n');
           }
           allText.writeln(cleanedText);
           allText.writeln();
         }
-        print('✅ Image ${i + 1}: ${cleanedText.length} chars');
+        print('✅… Image ${i + 1}: ${cleanedText.length} chars');
       } catch (e) {
         print('❌ OCR Error: $e');
         // Server xato bersa, shu rasm uchun local ga tushish
@@ -114,17 +120,17 @@ class _OcrPageState extends State<OcrPage> {
             final cleanedText = _localOcr.cleanText(text);
             if (cleanedText.isNotEmpty) {
               if (widget.images.length > 1) {
-                allText.writeln('--- Sahifa ${i + 1} ---\n');
+                allText.writeln('--- Page ${i + 1} ---\n');
               }
               allText.writeln(cleanedText);
               allText.writeln();
             }
           } catch (e2) {
-            print('❌ Local OCR ham xato: $e2');
-            allText.writeln('--- Sahifa ${i + 1}: Xatolik ---\n');
+            print('❌ Local OCR also failed: $e2');
+            allText.writeln('--- Page ${i + 1}: Error ---\n');
           }
         } else {
-          allText.writeln('--- Sahifa ${i + 1}: Xatolik ---\n');
+          allText.writeln('--- page ${i + 1}: Error ---\n');
         }
       }
     }
@@ -153,7 +159,7 @@ class _OcrPageState extends State<OcrPage> {
   }
 
   // ============================================================
-  // 3) QUICK BACKEND CHECK — 5 sekund
+  // 3) QUICK BACKEND CHECK - 5 seconds
   // ============================================================
 
   Future<bool> _isBackendAvailable() async {
@@ -167,16 +173,16 @@ class _OcrPageState extends State<OcrPage> {
       );
       final res = await dio.get('${_getBaseUrl()}/health');
       final ok = res.statusCode == 200;
-      print(ok ? '✅ Backend mavjud!' : '❌ Backend javob bermadi');
+      print(ok ? '✅ Backend available!' : '❌ Backend did not respond');
       return ok;
     } catch (e) {
-      print('❌ Backend mavjud emas: $e');
+      print('❌ Backend unavailable: $e');
       return false;
     }
   }
 
   // ============================================================
-  // 4) DIRECT BACKEND DOCX — prewarm yo'q, tezkor
+  // 4) DIRECT BACKEND DOCX — no prewarm, fast
   // ============================================================
 
   Future<List<int>?> _buildDocxViaBackend() async {
@@ -214,7 +220,7 @@ class _OcrPageState extends State<OcrPage> {
         return List<int>.from(res.data);
       }
     } catch (e) {
-      print('❌ Backend DOCX xatolik: $e');
+      print('❌ Backend DOCX error: $e');
       return null;
     }
   }
@@ -227,13 +233,13 @@ class _OcrPageState extends State<OcrPage> {
     if (_extractedText.isEmpty) {
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text('Matn topilmadi!')));
+      ).showSnackBar(const SnackBar(content: Text('No text found!')));
       return;
     }
 
     setState(() {
       _isSavingDocx = true;
-      _savingStatus = 'Tekshirilmoqda...';
+      _savingStatus = 'Checking...';
     });
 
     File? docxFile;
@@ -243,8 +249,8 @@ class _OcrPageState extends State<OcrPage> {
       final backendOk = await _isBackendAvailable();
 
       if (backendOk) {
-        setState(() => _savingStatus = 'Server: ML formatlash...');
-        print('📄 Backend DOCX...');
+        setState(() => _savingStatus = 'Server: ML formatting...');
+        print('🔄 Backend DOCX...');
         final bytes = await _buildDocxViaBackend();
 
         if (bytes != null && bytes.isNotEmpty) {
@@ -261,25 +267,25 @@ class _OcrPageState extends State<OcrPage> {
       }
 
       if (docxFile == null) {
-        setState(() => _savingStatus = 'Offline: Smart formatlash...');
-        print('📄 Offline Smart DOCX...');
+        setState(() => _savingStatus = 'Offline: Smart formatting...');
+        print('🔄 Offline Smart DOCX...');
         docxFile = await _docxCreator.createFormattedDocx(_extractedText);
         print('✅ Offline DOCX: ${docxFile.path}');
       }
     } catch (e) {
-      print('❌ DOCX xatolik: $e');
+      print('❌ DOCX error: $e');
       setState(() {
         _isSavingDocx = false;
         _savingStatus = '';
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Xatolik: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
       return;
     }
 
-    // Hive ga saqlash
+    // Save to Hive
     try {
       final docBox = Hive.box<DocumentModel>('documents_box');
       final document = DocumentModel(
@@ -287,7 +293,7 @@ class _OcrPageState extends State<OcrPage> {
         filePath: docxFile.path,
         createdAt: DateTime.now(),
         fileType: 'docx',
-        category: 'O\'quv',
+        category: 'Education',
       );
       await docBox.add(document);
       print('✅ Hive saved');
@@ -305,7 +311,7 @@ class _OcrPageState extends State<OcrPage> {
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Xatolik: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -323,7 +329,7 @@ class _OcrPageState extends State<OcrPage> {
               children: [
                 Icon(Icons.check_circle, color: Colors.green, size: 28),
                 SizedBox(width: 12),
-                Flexible(child: Text('Tayyor!')),
+                Flexible(child: Text('Ready!')),
               ],
             ),
             content: Column(
@@ -342,13 +348,13 @@ class _OcrPageState extends State<OcrPage> {
                     children: [
                       _checkRow(
                         usedBackend
-                            ? 'ML formatlangan DOCX'
-                            : 'Smart formatlangan DOCX',
+                            ? 'ML formatted DOCX'
+                            : 'Smart formatted DOCX',
                       ),
                       const SizedBox(height: 6),
-                      _checkRow('Documents ga qo\'shildi'),
+                      _checkRow('Added to Documents'),
                       const SizedBox(height: 6),
-                      _checkRow('Noise filtrlandi, satrlar birlashtirildi'),
+                      _checkRow('Noise filtered, lines merged'),
                     ],
                   ),
                 ),
@@ -367,7 +373,7 @@ class _OcrPageState extends State<OcrPage> {
                   Navigator.pop(context);
                   Navigator.pop(context);
                 },
-                child: const Text('Orqaga'),
+                child: const Text('Back'),
               ),
               ElevatedButton.icon(
                 onPressed: () async {
@@ -375,7 +381,7 @@ class _OcrPageState extends State<OcrPage> {
                   await OpenFile.open(docxFile.path);
                 },
                 icon: const Icon(Icons.open_in_new, size: 16),
-                label: const Text('Ochish'),
+                label: const Text('Open'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
                   foregroundColor: Colors.white,
@@ -384,12 +390,10 @@ class _OcrPageState extends State<OcrPage> {
               ElevatedButton.icon(
                 onPressed: () async {
                   Navigator.pop(context);
-                  await Share.shareXFiles([
-                    XFile(docxFile.path),
-                  ], text: '📄 Scan');
+                  await Share.shareXFiles([XFile(docxFile.path)], text: 'Scan');
                 },
                 icon: const Icon(Icons.share, size: 16),
-                label: const Text('Ulashish'),
+                label: const Text('Share'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
                   foregroundColor: Colors.white,
@@ -417,7 +421,7 @@ class _OcrPageState extends State<OcrPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('OCR - Matnni ajratish')),
+      appBar: AppBar(title: const Text('OCR - Text Extraction')),
       body: _isProcessing ? _buildProcessingUI() : _buildResultUI(),
     );
   }
@@ -433,13 +437,13 @@ class _OcrPageState extends State<OcrPage> {
             const SizedBox(height: 24),
             Text(
               _ocrMode == 'server'
-                  ? '🖥️ Server OCR ishlamoqda...'
-                  : '⚡ Matn ajratilmoqda...',
+                  ? 'Server OCR is running...'
+                  : 'Extracting text...',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
             Text(
-              'Rasm ${_currentImageIndex + 1} / ${widget.images.length}',
+              'Image ${_currentImageIndex + 1} / ${widget.images.length}',
               style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 16),
@@ -475,15 +479,15 @@ class _OcrPageState extends State<OcrPage> {
                       children: [
                         Text(
                           _ocrMode == 'server'
-                              ? 'Matn ajratildi! (Server)'
-                              : 'Matn ajratildi! (Local)',
+                              ? 'Text extracted! (Server)'
+                              : 'Text extracted! (Local)',
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                           ),
                         ),
                         Text(
-                          '${widget.images.length} ta rasm, ${_extractedText.length} belgi',
+                          '${widget.images.length} images, ${_extractedText.length} characters',
                           style: TextStyle(
                             fontSize: 13,
                             color: Colors.grey.shade700,
@@ -499,7 +503,7 @@ class _OcrPageState extends State<OcrPage> {
           const SizedBox(height: 16),
 
           const Text(
-            'Matn:',
+            'Text:',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
@@ -513,7 +517,7 @@ class _OcrPageState extends State<OcrPage> {
             constraints: const BoxConstraints(maxHeight: 280),
             child: SingleChildScrollView(
               child: SelectableText(
-                _extractedText.isEmpty ? 'Matn topilmadi' : _extractedText,
+                _extractedText.isEmpty ? 'No text found' : _extractedText,
                 style: const TextStyle(fontSize: 14, height: 1.5),
               ),
             ),
@@ -535,10 +539,8 @@ class _OcrPageState extends State<OcrPage> {
                     : const Icon(Icons.save, size: 22),
             label: Text(
               _isSavingDocx
-                  ? (_savingStatus.isNotEmpty
-                      ? _savingStatus
-                      : 'Saqlanmoqda...')
-                  : '💾 DOCX ga saqlash',
+                  ? (_savingStatus.isNotEmpty ? _savingStatus : 'Saving...')
+                  : 'Save as DOCX',
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               overflow: TextOverflow.ellipsis,
             ),
@@ -571,7 +573,7 @@ class _OcrPageState extends State<OcrPage> {
                     const SizedBox(width: 8),
                     const Flexible(
                       child: Text(
-                        'Smart Formatlash',
+                        'Smart Formatting',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -579,12 +581,12 @@ class _OcrPageState extends State<OcrPage> {
                 ),
                 const SizedBox(height: 10),
                 const Text(
-                  '✓ Telefon UI chiqindilari olib tashlanadi\n'
-                  '✓ Uzilgan satrlar birlashtiriladi\n'
-                  '✓ Paragraflar to\'g\'ri ajratiladi\n'
-                  '✓ Sarlavha, ro\'yxat, abzats aniqlanadi\n'
-                  '✓ Times New Roman, A4, 1.5 interval\n'
-                  '✓ Online: ML model | Offline: Smart filter',
+                  '- Phone UI artifacts are removed\n'
+                  '- Broken lines are merged\n'
+                  '- Paragraphs are split correctly\n'
+                  '- Headings, lists, and paragraphs are detected\n'
+                  '- Times New Roman, A4, 1.5 spacing\n'
+                  '- Online: ML model | Offline: Smart filter',
                   style: TextStyle(fontSize: 12, height: 1.6),
                 ),
               ],

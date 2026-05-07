@@ -63,7 +63,7 @@ class GoogleDriveService {
   ) async {
     if (_driveApi == null) throw Exception("Drive ulanmagan");
 
-    final folderId = await _getOrCreateFolder("SmartArxiv");
+    final folderId = await _getOrCreateFolder("SmartArchive");
 
     final totalBytes = await file.length();
     int uploaded = 0;
@@ -115,3 +115,4 @@ class GoogleDriveService {
     await _googleSignIn.signOut();
   }
 }
+

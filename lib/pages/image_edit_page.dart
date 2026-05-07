@@ -1,4 +1,4 @@
-// lib/pages/image_edit_page.dart
+﻿// lib/pages/image_edit_page.dart
 //
 // Full screen image edit page
 // - crop (optional, faqat camera)
@@ -48,7 +48,7 @@ class _ImageEditPageState extends State<ImageEditPage> {
   late Uint8List _imageBytes;
   bool _busy = false;
 
-  // Crop widget refresh uchun (rotate qilganda crop overlay reset bo‘lsin)
+  // Crop widget refresh uchun (rotate qilganda crop overlay reset boÃ¢â‚¬Ëœlsin)
   int _cropVersion = 0;
 
   @override
@@ -84,7 +84,7 @@ class _ImageEditPageState extends State<ImageEditPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("❌ Saqlashda xatolik: $e")));
+      ).showSnackBar(SnackBar(content: Text("Error while saving: $e")));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -105,7 +105,7 @@ class _ImageEditPageState extends State<ImageEditPage> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("❌ Crop/Save xatolik: $e")));
+      ).showSnackBar(SnackBar(content: Text("Crop/Save error: $e")));
       setState(() => _busy = false);
     }
   }
@@ -115,16 +115,16 @@ class _ImageEditPageState extends State<ImageEditPage> {
       context: context,
       builder: (_) {
         return AlertDialog(
-          title: const Text("Rasm o‘chirilsinmi?"),
-          content: const Text("Bu rasm ro‘yxatdan olib tashlanadi."),
+          title: const Text("Delete this image?"),
+          content: const Text("This image will be removed from the list."),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text("Bekor"),
+              child: const Text("Cancel"),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
-              child: const Text("O‘chirish"),
+              child: const Text("Delete"),
             ),
           ],
         );
@@ -144,28 +144,28 @@ class _ImageEditPageState extends State<ImageEditPage> {
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        title: const Text("Rasmni tahrirlash"),
+        title: const Text("Edit Image"),
         actions: [
           IconButton(
-            tooltip: "Burish",
+            tooltip: "Rotate",
             icon: const Icon(Icons.rotate_right),
             onPressed: _busy ? null : _rotate90,
           ),
           if (widget.allowCrop)
             IconButton(
-              tooltip: "Kesish",
+              tooltip: "Crop",
               icon: const Icon(Icons.crop),
               onPressed: _busy ? null : _startCrop,
             ),
           IconButton(
-            tooltip: "O‘chirish",
+            tooltip: "Delete",
             icon: const Icon(Icons.delete),
             onPressed: _busy ? null : _delete,
           ),
           IconButton(
-            tooltip: "Saqlash",
+            tooltip: "Save",
             icon: const Icon(Icons.check),
-            // Crop bo'lmasa — oddiy save
+            // Crop bo'lmasa Ã¢â‚¬â€ oddiy save
             onPressed: _busy ? null : (widget.allowCrop ? null : _saveNoCrop),
           ),
         ],
@@ -196,3 +196,5 @@ class _ImageEditPageState extends State<ImageEditPage> {
     );
   }
 }
+
+

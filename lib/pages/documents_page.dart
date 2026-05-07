@@ -1,6 +1,6 @@
-// lib/pages/documents_page.dart
-// 🔥 TO'LIQ ISHLAYDIGAN VERSIYA - Barcha services active
-// ✅ SELECTION + SWIPE DELETE + UNDO SYSTEM ADDED
+﻿// lib/pages/documents_page.dart
+// ÄŸÅ¸â€Â¥ TO'LIQ ISHLAYDIGAN VERSIYA - Barcha services active
+// Ã¢Å“â€¦ SELECTION + SWIPE DELETE + UNDO SYSTEM ADDED
 
 import 'dart:io';
 
@@ -38,14 +38,14 @@ class _DocumentsPageState extends State<DocumentsPage>
   final GoogleDriveService _driveService =
       GoogleDriveService(); // Drive service
 
-  String _selectedCategory = 'Barchasi';
+  String _selectedCategory = 'All';
 
   final List<String> _categories = [
-    'Barchasi',
-    'Ish',
-    'Shaxsiy',
-    "O'quv",
-    'Boshqa',
+    'All',
+    'Work',
+    'Personal',
+    "Study",
+    'Other',
   ];
 
   // ================= SELECTION SYSTEM =================
@@ -134,7 +134,7 @@ class _DocumentsPageState extends State<DocumentsPage>
                   }
 
                   if (snap.hasError || !snap.hasData) {
-                    return Center(child: Text("Xatolik: ${snap.error}"));
+                    return Center(child: Text("Error: ${snap.error}"));
                   }
 
                   final box = snap.data!;
@@ -174,9 +174,9 @@ class _DocumentsPageState extends State<DocumentsPage>
       return Container(
         width: double.infinity,
         padding: EdgeInsets.fromLTRB(
-          20,
-          MediaQuery.of(context).padding.top + 12,
-          20,
+          24,
+          MediaQuery.of(context).padding.top + 14,
+          24,
           12,
         ),
         decoration: const BoxDecoration(color: AppColors.primary),
@@ -192,7 +192,7 @@ class _DocumentsPageState extends State<DocumentsPage>
               },
             ),
             Text(
-              '${_selectedPaths.length} tanlandi',
+              '${_selectedPaths.length} selected',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -215,33 +215,54 @@ class _DocumentsPageState extends State<DocumentsPage>
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(20, 44, 20, 2),
-      decoration: const BoxDecoration(color: AppColors.primary),
+      padding: EdgeInsets.fromLTRB(
+        24,
+        MediaQuery.of(context).padding.top + 14,
+        24,
+        12, // 🔥 eng muhim o‘zgarish — 16 emas, 12
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.primary,
+        borderRadius: BorderRadius.only(
+          bottomLeft: Radius.circular(18),
+          bottomRight: Radius.circular(18),
+        ),
+      ),
       child: Row(
         children: [
           CircleAvatar(
-            radius: 20,
+            radius: 22,
             backgroundColor: Colors.white,
             child: Text(
               'SA',
               style: TextStyle(
                 color: AppColors.primary,
                 fontWeight: FontWeight.bold,
+                fontSize: 16,
               ),
             ),
           ),
-          const SizedBox(width: 12),
+
+          const SizedBox(width: 14),
+
           const Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'SmartArxiv',
+                  'SmartArchive',
                   style: TextStyle(
-                    fontSize: 20,
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Colors.white,
                   ),
+                ),
+
+                SizedBox(height: 2), // 🔥 4 emas 2
+
+                Text(
+                  'Manage your scanned documents',
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
               ],
             ),
@@ -296,7 +317,7 @@ class _DocumentsPageState extends State<DocumentsPage>
     ];
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: GridView.builder(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
@@ -413,7 +434,7 @@ class _DocumentsPageState extends State<DocumentsPage>
     return _buildListView(filtered);
   }
 
-  // ✅ UPDATED: Drag selection enabled
+  // Ã¢Å“â€¦ UPDATED: Drag selection enabled
   Widget _buildListView(List<DocumentModel> docs) {
     return GestureDetector(
       onPanStart: (_) {
@@ -442,7 +463,7 @@ class _DocumentsPageState extends State<DocumentsPage>
     );
   }
 
-  // ✅ UPDATED: Swipe to delete + Selection support
+  // Ã¢Å“â€¦ UPDATED: Swipe to delete + Selection support
   Widget _buildDocumentListItem(DocumentModel doc) {
     final isSelected = _selectedPaths.contains(doc.filePath);
 
@@ -507,7 +528,7 @@ class _DocumentsPageState extends State<DocumentsPage>
           subtitle: Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(
-              '${_getFileSize(doc.filePath)} • ${_formatDateTime(doc.createdAt)}',
+              '${_getFileSize(doc.filePath)} •  ${_formatDateTime(doc.createdAt)}',
               style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
             ),
           ),
@@ -559,7 +580,7 @@ class _DocumentsPageState extends State<DocumentsPage>
       filtered = filtered.where((doc) => doc.isFavorite).toList();
     }
 
-    if (_selectedCategory != 'Barchasi') {
+    if (_selectedCategory != 'All') {
       filtered =
           filtered.where((doc) {
             return doc.category == _selectedCategory;
@@ -584,7 +605,7 @@ class _DocumentsPageState extends State<DocumentsPage>
           ),
           const SizedBox(height: 16),
           Text(
-            isStarredTab ? "Sevimli hujjatlar yo'q" : "Hujjatlar topilmadi",
+            isStarredTab ? "No favorite documents" : "No documents found",
             style: TextStyle(
               fontSize: 18,
               color: Colors.grey.shade600,
@@ -598,13 +619,13 @@ class _DocumentsPageState extends State<DocumentsPage>
 
   List<PopupMenuEntry<String>> _buildDocumentMenu(DocumentModel doc) {
     return [
-      const PopupMenuItem(value: 'open', child: Text("Ochish")),
-      const PopupMenuItem(value: 'category', child: Text("Kategoriya")),
-      const PopupMenuItem(value: 'rename', child: Text("Nomlash")),
-      const PopupMenuItem(value: 'share', child: Text("Ulashish")),
+      const PopupMenuItem(value: 'open', child: Text("Open")),
+      const PopupMenuItem(value: 'category', child: Text("Category")),
+      const PopupMenuItem(value: 'rename', child: Text("Rename")),
+      const PopupMenuItem(value: 'share', child: Text("Share")),
       const PopupMenuItem(
         value: 'delete',
-        child: Text("O'chirish", style: TextStyle(color: Colors.red)),
+        child: Text("Delete", style: TextStyle(color: Colors.red)),
       ),
     ];
   }
@@ -685,7 +706,7 @@ class _DocumentsPageState extends State<DocumentsPage>
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("${docs.length} ta fayl o'chirildi"),
+        content: Text("${docs.length} files deleted"),
         duration: const Duration(seconds: 5),
         action: SnackBarAction(
           label: "Undo",
@@ -720,7 +741,7 @@ class _DocumentsPageState extends State<DocumentsPage>
           if (!mounted) return;
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text("❌ Documents bo'sh")));
+          ).showSnackBar(const SnackBar(content: Text("Documents is empty")));
           return;
         }
 
@@ -749,7 +770,7 @@ class _DocumentsPageState extends State<DocumentsPage>
       if (level == null) return;
 
       if (!mounted) return;
-      _showLoading("Siqilmoqda... 0/${filesToCompress.length}");
+      _showLoading("Compressing... 0/${filesToCompress.length}");
 
       // 3. Fayllarni siqish
       final compressedFiles = <String>[];
@@ -771,17 +792,17 @@ class _DocumentsPageState extends State<DocumentsPage>
             filePath: compressedPath,
             createdAt: DateTime.now(),
             fileType: path.extension(compressedPath).substring(1),
-            category: 'Boshqa',
+            category: 'Other',
           );
           await box.add(doc);
 
           // Progress yangilash
           if (mounted) {
             Navigator.pop(context);
-            _showLoading("Siqilmoqda... ${i + 1}/${filesToCompress.length}");
+            _showLoading("Compressing... ${i + 1}/${filesToCompress.length}");
           }
         } catch (e) {
-          print("❌ ${path.basename(filesToCompress[i].path)} xatolik: $e");
+          print("${path.basename(filesToCompress[i].path)} xatolik: $e");
         }
       }
 
@@ -791,7 +812,7 @@ class _DocumentsPageState extends State<DocumentsPage>
       // 4. Natijani ko'rsatish
       if (compressedFiles.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("❌ Hech qanday fayl siqilmadi")),
+          const SnackBar(content: Text("No files were compressed")),
         );
         return;
       }
@@ -813,8 +834,8 @@ class _DocumentsPageState extends State<DocumentsPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            "✅ ${compressedFiles.length} ta fayl siqildi\n"
-            "Tejaldi: ${_formatBytes(savedBytes)} ($savedPercent%)",
+            "${compressedFiles.length} files compressed\n"
+            "Saved: ${_formatBytes(savedBytes)} ($savedPercent%)",
           ),
           duration: const Duration(seconds: 4),
         ),
@@ -824,7 +845,7 @@ class _DocumentsPageState extends State<DocumentsPage>
       Navigator.pop(context);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("❌ Xatolik: $e")));
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -834,12 +855,12 @@ class _DocumentsPageState extends State<DocumentsPage>
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text("Fayllarni tanlash"),
-            content: const Text("Qayerdan fayllarni tanlaysiz?"),
+            title: const Text("Select files"),
+            content: const Text("Where do you want to select files from?"),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text("Bekor qilish"),
+                child: const Text("Cancel"),
               ),
               ElevatedButton.icon(
                 onPressed: () => Navigator.pop(context, 'documents'),
@@ -849,7 +870,7 @@ class _DocumentsPageState extends State<DocumentsPage>
               ElevatedButton.icon(
                 onPressed: () => Navigator.pop(context, 'storage'),
                 icon: const Icon(Icons.storage, size: 20),
-                label: const Text("Ichki xotira"),
+                label: const Text("Internal storage"),
               ),
             ],
           ),
@@ -868,7 +889,7 @@ class _DocumentsPageState extends State<DocumentsPage>
           (context) => StatefulBuilder(
             builder: (context, setDialogState) {
               return AlertDialog(
-                title: const Text("Fayllarni tanlang"),
+                title: const Text("Select files"),
                 content: SizedBox(
                   width: double.maxFinite,
                   height: 400,
@@ -909,14 +930,14 @@ class _DocumentsPageState extends State<DocumentsPage>
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),
-                    child: const Text("Bekor qilish"),
+                    child: const Text("Cancel"),
                   ),
                   ElevatedButton(
                     onPressed:
                         selected.isEmpty
                             ? null
                             : () => Navigator.pop(context, selected),
-                    child: Text("Tanlash (${selected.length})"),
+                    child: Text("Select (${selected.length})"),
                   ),
                 ],
               );
@@ -931,32 +952,32 @@ class _DocumentsPageState extends State<DocumentsPage>
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text("Siqish darajasi"),
+            title: const Text("Compression level"),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  "Yuqori daraja - kichik fayl, past sifat\n"
-                  "Past daraja - katta fayl, yuqori sifat",
+                  "High level - smaller file, lower quality\n"
+                  "Low level - larger file, higher quality",
                   style: TextStyle(fontSize: 12, color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
                 ListTile(
                   leading: const Icon(Icons.looks_one, color: Colors.green),
-                  title: const Text("Past siqish"),
-                  subtitle: const Text("90% sifat - minimal siqish"),
+                  title: const Text("Low compression"),
+                  subtitle: const Text("90% quality - minimal compression"),
                   onTap: () => Navigator.pop(context, CompressionLevel.low),
                 ),
                 ListTile(
                   leading: const Icon(Icons.looks_two, color: Colors.orange),
-                  title: const Text("O'rta siqish"),
-                  subtitle: const Text("70% sifat - o'rtacha siqish"),
+                  title: const Text("Medium compression"),
+                  subtitle: const Text("70% quality - medium compression"),
                   onTap: () => Navigator.pop(context, CompressionLevel.medium),
                 ),
                 ListTile(
                   leading: const Icon(Icons.looks_3, color: Colors.red),
-                  title: const Text("Yuqori siqish"),
-                  subtitle: const Text("50% sifat - maksimal siqish"),
+                  title: const Text("High compression"),
+                  subtitle: const Text("50% quality - maximum compression"),
                   onTap: () => Navigator.pop(context, CompressionLevel.high),
                 ),
               ],
@@ -964,7 +985,7 @@ class _DocumentsPageState extends State<DocumentsPage>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text("Bekor qilish"),
+                child: const Text("Cancel"),
               ),
             ],
           ),
@@ -991,7 +1012,7 @@ class _DocumentsPageState extends State<DocumentsPage>
       if (result == null || result.files.isEmpty) return;
 
       if (!mounted) return;
-      _showLoading("Word→PDF konvertatsiya...");
+      _showLoading("Word→PDF conversion...");
 
       final wordFile = File(result.files.first.path!);
 
@@ -1005,7 +1026,7 @@ class _DocumentsPageState extends State<DocumentsPage>
         filePath: pdfPath,
         createdAt: DateTime.now(),
         fileType: 'pdf',
-        category: 'Boshqa',
+        category: 'Other',
       );
       await box.add(doc);
 
@@ -1014,9 +1035,9 @@ class _DocumentsPageState extends State<DocumentsPage>
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text("✅ Word→PDF muvaffaqiyatli"),
+          content: const Text("Word→PDF successfully"),
           action: SnackBarAction(
-            label: "Ochish",
+            label: "Open",
             onPressed: () => OpenFile.open(pdfPath),
           ),
         ),
@@ -1026,7 +1047,7 @@ class _DocumentsPageState extends State<DocumentsPage>
       Navigator.pop(context);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("❌ Xatolik: $e")));
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -1042,7 +1063,7 @@ class _DocumentsPageState extends State<DocumentsPage>
       if (result == null || result.files.length < 2) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Kamida 2 ta fayl tanlang")),
+            const SnackBar(content: Text("Select at least 2 files")),
           );
         }
         return;
@@ -1050,23 +1071,21 @@ class _DocumentsPageState extends State<DocumentsPage>
 
       final files = result.files.map((f) => File(f.path!)).toList();
 
-      // Format tekshirish (aralash bo‘lmasligi kerak)
+      // Format tekshirish (aralash boÃ¢â‚¬Ëœlmasligi kerak)
       final extensions =
           files.map((f) => path.extension(f.path).toLowerCase()).toSet();
 
       if (extensions.length != 1) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("Aralash formatlarni merge qilib bo'lmaydi."),
-            ),
+            const SnackBar(content: Text("Mixed formats cannot be merged.")),
           );
         }
         return;
       }
 
       if (!mounted) return;
-      _showLoading("Fayllar birlashtirilmoqda...");
+      _showLoading("Merging files...");
 
       final api = ApiService();
       final mergedBytes = await api.mergeFiles(files);
@@ -1089,7 +1108,7 @@ class _DocumentsPageState extends State<DocumentsPage>
         filePath: mergedPath,
         createdAt: DateTime.now(),
         fileType: ext,
-        category: 'Boshqa',
+        category: 'Other',
       );
       await box.add(doc);
 
@@ -1098,11 +1117,9 @@ class _DocumentsPageState extends State<DocumentsPage>
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(
-            "✅ ${files.length} ta fayl muvaffaqiyatli birlashtirildi",
-          ),
+          content: Text("${files.length} files merged successfully"),
           action: SnackBarAction(
-            label: "Ochish",
+            label: "Open",
             onPressed: () => OpenFile.open(mergedPath),
           ),
         ),
@@ -1112,7 +1129,7 @@ class _DocumentsPageState extends State<DocumentsPage>
       Navigator.pop(context);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("❌ Xatolik: $e")));
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -1127,9 +1144,9 @@ class _DocumentsPageState extends State<DocumentsPage>
       final signedIn = await driveService.signIn();
 
       if (!signedIn) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Google login bekor qilindi")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Google login cancelled")));
         return;
       }
 
@@ -1170,7 +1187,7 @@ class _DocumentsPageState extends State<DocumentsPage>
           if (mounted && link != null) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: const Text("Fayl yuklandi"),
+                content: const Text("File uploaded"),
                 action: SnackBarAction(
                   label: "Link",
                   onPressed: () {
@@ -1189,7 +1206,7 @@ class _DocumentsPageState extends State<DocumentsPage>
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("Upload xato: $e")));
+      ).showSnackBar(SnackBar(content: Text("Upload error: $e")));
     }
   }
 
@@ -1205,7 +1222,7 @@ class _DocumentsPageState extends State<DocumentsPage>
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text(
-                  "Google Cloud Console'dan olingan Service Account JSON credentials'ni kiriting:",
+                  "Enter the Service Account JSON credentials from Google Cloud Console:",
                   style: TextStyle(fontSize: 12),
                 ),
                 const SizedBox(height: 12),
@@ -1223,11 +1240,11 @@ class _DocumentsPageState extends State<DocumentsPage>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text("Bekor qilish"),
+                child: const Text("Cancel"),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, controller.text.trim()),
-                child: const Text("Yuklash"),
+                child: const Text("Upload"),
               ),
             ],
           ),
@@ -1245,7 +1262,7 @@ class _DocumentsPageState extends State<DocumentsPage>
 
       if (!mounted) return;
 
-      _showLoading("PDF yaratilmoqda...");
+      _showLoading("Creating PDF...");
 
       // Create PDF from images
       final pdf = pw.Document();
@@ -1276,7 +1293,7 @@ class _DocumentsPageState extends State<DocumentsPage>
         filePath: pdfPath,
         createdAt: DateTime.now(),
         fileType: 'pdf',
-        category: 'Boshqa',
+        category: 'Other',
       );
       await box.add(doc);
 
@@ -1285,9 +1302,9 @@ class _DocumentsPageState extends State<DocumentsPage>
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("✅ PDF yaratildi: ${result.files.length} ta rasm"),
+          content: Text("PDF created: ${result.files.length} images"),
           action: SnackBarAction(
-            label: "Ochish",
+            label: "Open",
             onPressed: () => OpenFile.open(pdfPath),
           ),
         ),
@@ -1297,7 +1314,7 @@ class _DocumentsPageState extends State<DocumentsPage>
       Navigator.pop(context);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("❌ Xatolik: $e")));
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -1319,7 +1336,7 @@ class _DocumentsPageState extends State<DocumentsPage>
         if (docs.isEmpty) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("❌ Documents da PDF topilmadi")),
+            const SnackBar(content: Text("No PDF found in Documents")),
           );
           return;
         }
@@ -1329,7 +1346,7 @@ class _DocumentsPageState extends State<DocumentsPage>
 
         pdfFile = File(selectedDocs.first.filePath);
       } else {
-        // Ichki xotira
+        // Internal storage
         final result = await FilePicker.platform.pickFiles(
           type: FileType.custom,
           allowedExtensions: ['pdf'],
@@ -1356,13 +1373,13 @@ class _DocumentsPageState extends State<DocumentsPage>
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text("Jami sahifalar: $pages"),
+                  Text("Total pages: $pages"),
                   const SizedBox(height: 12),
                   TextField(
                     controller: startController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: "Boshlanish sahifasi",
+                      labelText: "Start page",
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -1371,7 +1388,7 @@ class _DocumentsPageState extends State<DocumentsPage>
                     controller: endController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: "Tugash sahifasi",
+                      labelText: "End page",
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -1380,7 +1397,7 @@ class _DocumentsPageState extends State<DocumentsPage>
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context, false),
-                  child: const Text("Bekor"),
+                  child: const Text("Cancel"),
                 ),
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context, true),
@@ -1396,14 +1413,14 @@ class _DocumentsPageState extends State<DocumentsPage>
       final end = int.parse(endController.text);
 
       if (start < 1 || end > pages || start > end) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("❌ Noto‘g‘ri sahifa diapazoni")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("Invalid page range")));
         return;
       }
 
       if (!mounted) return;
-      _showLoading("PDF bo‘linmoqda...");
+      _showLoading("Splitting PDF...");
 
       final dir = await getApplicationDocumentsDirectory();
 
@@ -1421,7 +1438,7 @@ class _DocumentsPageState extends State<DocumentsPage>
         filePath: newPath,
         createdAt: DateTime.now(),
         fileType: 'pdf',
-        category: 'Boshqa',
+        category: 'Other',
       );
 
       await box.add(doc);
@@ -1429,15 +1446,15 @@ class _DocumentsPageState extends State<DocumentsPage>
       if (!mounted) return;
       Navigator.pop(context);
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("✅ PDF muvaffaqiyatli bo‘lindi")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("PDF split successfully")));
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("❌ Xatolik: $e")));
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -1475,10 +1492,10 @@ class _DocumentsPageState extends State<DocumentsPage>
       context: context,
       builder:
           (context) => SimpleDialog(
-            title: const Text('Kategoriya tanlang'),
+            title: const Text('Select category'),
             children:
                 _categories
-                    .where((cat) => cat != 'Barchasi')
+                    .where((cat) => cat != 'All')
                     .map(
                       (cat) => SimpleDialogOption(
                         child: Text(cat),
@@ -1502,11 +1519,11 @@ class _DocumentsPageState extends State<DocumentsPage>
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text("Nomlash"),
+            title: const Text("Rename"),
             content: TextField(
               controller: controller,
               decoration: const InputDecoration(
-                labelText: "Yangi nom",
+                labelText: "New name",
                 border: OutlineInputBorder(),
               ),
               autofocus: true,
@@ -1514,11 +1531,11 @@ class _DocumentsPageState extends State<DocumentsPage>
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text("Bekor qilish"),
+                child: const Text("Cancel"),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, controller.text.trim()),
-                child: const Text("Saqlash"),
+                child: const Text("Save"),
               ),
             ],
           ),
@@ -1551,17 +1568,17 @@ class _DocumentsPageState extends State<DocumentsPage>
       context: context,
       builder:
           (context) => AlertDialog(
-            title: const Text("O'chirish"),
-            content: Text("\"${doc.title}\" ni o'chirishni xohlaysizmi?"),
+            title: const Text("Delete"),
+            content: Text("\"${doc.title}\" do you want to delete?"),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text("Yo'q"),
+                child: const Text("No"),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                child: const Text("Ha"),
+                child: const Text("Yes"),
               ),
             ],
           ),
@@ -1579,13 +1596,13 @@ class _DocumentsPageState extends State<DocumentsPage>
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(const SnackBar(content: Text("✅ O'chirildi")));
+          ).showSnackBar(const SnackBar(content: Text("Deleted")));
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(
             context,
-          ).showSnackBar(SnackBar(content: Text("❌ Xatolik: $e")));
+          ).showSnackBar(SnackBar(content: Text("Error: $e")));
         }
       }
     }
@@ -1642,9 +1659,9 @@ class _DocumentsPageState extends State<DocumentsPage>
     if (diff.inDays == 0) {
       return '${date.hour}:${date.minute.toString().padLeft(2, '0')}';
     } else if (diff.inDays == 1) {
-      return 'Kecha';
+      return 'Yesterday';
     } else if (diff.inDays < 7) {
-      return '${diff.inDays} kun oldin';
+      return '${diff.inDays} days ago';
     } else {
       return '${date.day}.${date.month}.${date.year}';
     }

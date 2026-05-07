@@ -26,7 +26,7 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  static const String _defaultBaseUrl = "http://10.163.30.170:8000";
+  static const String _defaultBaseUrl = "http://10.248.114.170:8000";
 
   String _readBaseUrl() {
     try {
@@ -92,6 +92,7 @@ class ApiService {
     File image, {
     String lang = "auto",
     String? documentId,
+    void Function(int sent, int total)? onSendProgress,
   }) async {
     try {
       _refreshBaseUrl();
@@ -102,7 +103,11 @@ class ApiService {
         if (documentId != null) "document_id": documentId,
       });
 
-      final res = await _dio.post("/ocr", data: formData);
+      final res = await _dio.post(
+        "/ocr",
+        data: formData,
+        onSendProgress: onSendProgress,
+      );
 
       if (res.data is Map) {
         return OcrResult.fromJson(res.data);

@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "974054411861",
+    "project_id": "smartocr-auth",
+    "storage_bucket": "smartocr-auth.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:974054411861:android:1643384124e48beb4c8edc",
+        "android_client_info": {
+          "package_name": "com.smartarchive.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "974054411861-frs4n4vhvlniioog111pu9n0p29mfar9.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.smartarchive.app",
+            "certificate_hash": "ebed52b581310be720e25af54fc1e1ab37b91aea"
+          }
+        },
+        {
+          "client_id": "974054411861-s6i8h26942lfmo3h9ect0g600k2cnofq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDIxJK7SHWXTNJzVzU77tEZg1f3MvO-f94"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "974054411861-s6i8h26942lfmo3h9ect0g600k2cnofq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

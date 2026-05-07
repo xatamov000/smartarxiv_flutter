@@ -3,10 +3,11 @@ plugins {
     id("kotlin-android")
     // Flutter Gradle Plugin
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.gms.google-services")
 }
 
 android {
-    namespace = "com.example.arxive"
+    namespace = "com.smartarchive.app"
 
     compileSdk = 36
 
@@ -23,7 +24,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.arxive"
+        applicationId = "com.smartarchive.app"
         minSdk = 23
         targetSdk = 36
         versionCode = flutter.versionCode

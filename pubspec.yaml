@@ -83,6 +83,9 @@ dependencies:
   # ❌ DOCX packages - KERAK EMAS!
   # archive package yetarli!
 
+ 
+google_sign_in: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -102,6 +105,7 @@ flutter:
     - assets/tessdata_config.json
     - assets/fonts/
     - assets/tessdata/
+    - assets/google.png
 
   fonts:
     - family: Roboto

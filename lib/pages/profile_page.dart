@@ -1,7 +1,9 @@
-// lib/pages/profile_page.dart
+﻿// lib/pages/profile_page.dart
 import 'dart:io';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -22,14 +24,26 @@ class _ProfilePageState extends State<ProfilePage> {
   Box get _profile => Hive.box('profile_box');
   Box<DocumentModel> get _docs => Hive.box<DocumentModel>('documents_box');
 
+  User? get _user => FirebaseAuth.instance.currentUser;
+
   String get _name {
-    final v = (_profile.get('name') ?? '').toString().trim();
-    return v.isEmpty ? "Foydalanuvchi" : v;
+    final firebaseName = _user?.displayName;
+
+    if (firebaseName != null && firebaseName.isNotEmpty) {
+      return firebaseName;
+    }
+
+    return "User";
   }
 
   String get _email {
-    final v = (_profile.get('email') ?? '').toString().trim();
-    return v.isEmpty ? "email@example.com" : v;
+    final firebaseEmail = _user?.email;
+
+    if (firebaseEmail != null && firebaseEmail.isNotEmpty) {
+      return firebaseEmail;
+    }
+
+    return "email@example.com";
   }
 
   String? get _avatarPath {
@@ -45,14 +59,14 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder:
           (_) => AlertDialog(
-            title: const Text("Profilni tahrirlash"),
+            title: const Text("Edit Profile"),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 TextField(
                   controller: nameCtrl,
                   decoration: const InputDecoration(
-                    labelText: "Ism",
+                    labelText: "Name",
                     border: OutlineInputBorder(),
                   ),
                 ),
@@ -69,11 +83,11 @@ class _ProfilePageState extends State<ProfilePage> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text("Bekor"),
+                child: const Text("Cancel"),
               ),
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text("Saqlash"),
+                child: const Text("Save"),
               ),
             ],
           ),
@@ -85,7 +99,7 @@ class _ProfilePageState extends State<ProfilePage> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("✅ Profil saqlandi")));
+      ).showSnackBar(const SnackBar(content: Text("Profile saved")));
     }
 
     nameCtrl.dispose();
@@ -106,12 +120,12 @@ class _ProfilePageState extends State<ProfilePage> {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(const SnackBar(content: Text("✅ Avatar yangilandi")));
+      ).showSnackBar(const SnackBar(content: Text("Avatar updated")));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("❌ Avatar xatolik: $e")));
+      ).showSnackBar(SnackBar(content: Text("Avatar error: $e")));
     }
   }
 
@@ -145,7 +159,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   ListTile(
                     leading: const Icon(Icons.delete, color: Colors.red),
                     title: const Text(
-                      "Avatarni olib tashlash",
+                      "Remove avatar",
                       style: TextStyle(color: Colors.red),
                     ),
                     onTap: () async {
@@ -163,7 +177,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<int> _calcTotalBytes(List<DocumentModel> docs) async {
     int total = 0;
     for (final d in docs) {
-      final path = d.filePath; // String yoki String? bo‘lishi mumkin
+      final path = d.filePath; // String yoki String? boÃ¢â‚¬Ëœlishi mumkin
       if (path == null || path.trim().isEmpty) continue;
 
       try {
@@ -189,21 +203,20 @@ class _ProfilePageState extends State<ProfilePage> {
       context: context,
       builder:
           (_) => AlertDialog(
-            title: const Text("Chiqish"),
+            title: const Text("Sign Out"),
             content: const Text(
-              "Profil ma’lumotlari (ism/email/avatar) tozalanadi.\n"
-              "Hujjatlar (Documents) o‘chmaydi.\n\n"
-              "Davom etamizmi?",
+              "Profile data will be cleared.\n"
+              "Do you want to continue?",
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text("Bekor"),
+                child: const Text("Cancel"),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text("Chiqish"),
+                child: const Text("Sign Out"),
               ),
             ],
           ),
@@ -211,14 +224,26 @@ class _ProfilePageState extends State<ProfilePage> {
 
     if (yes != true) return;
 
+    // ÄŸÅ¸â€Â¥ Google logout (ENG MUHIM)
+    final GoogleSignIn googleSignIn = GoogleSignIn();
+
+    try {
+      await googleSignIn.disconnect();
+    } catch (_) {}
+
+    await googleSignIn.signOut();
+
+    // ÄŸÅ¸â€Â¥ Firebase logout
+    await FirebaseAuth.instance.signOut();
+
+    // Local ma'lumotlarni tozalash
     await _profile.delete('name');
     await _profile.delete('email');
     await _profile.delete('avatar_path');
 
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text("✅ Chiqildi")));
+
+    Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
   }
 
   @override
@@ -248,7 +273,7 @@ class _ProfilePageState extends State<ProfilePage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "Profil 👤",
+                      "Profile",
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 28,
@@ -257,7 +282,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     ),
                     SizedBox(height: 6),
                     Text(
-                      "Shaxsiy ma'lumotlaringiz",
+                      "Your personal information",
                       style: TextStyle(color: Colors.white70, fontSize: 15),
                     ),
                   ],
@@ -445,7 +470,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         Icon(Icons.logout, color: Colors.red),
                         SizedBox(width: 8),
                         Text(
-                          "Chiqish",
+                          "Sign Out",
                           style: TextStyle(
                             color: Colors.red,
                             fontWeight: FontWeight.w600,
@@ -460,7 +485,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
               const SizedBox(height: 18),
 
-              // ✅ Hech qanday Settings/About tile yo‘q
+              // Ã¢Å“â€¦ Hech qanday Settings/About tile yoÃ¢â‚¬Ëœq
             ],
           ),
         ),

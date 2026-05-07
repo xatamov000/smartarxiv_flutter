@@ -47,5 +47,9 @@
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
     <string>Ilovani himoyalash uchun Face ID ishlatiladi.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Hujjatlarni skanerlash uchun kamera kerak.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Rasmlarni yuklash uchun galereyaga kirish kerak.</string>
 </dict>
 </plist>
