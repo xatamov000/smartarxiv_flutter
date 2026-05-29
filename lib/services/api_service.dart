@@ -26,7 +26,11 @@ class ApiService {
   static final ApiService _instance = ApiService._internal();
   factory ApiService() => _instance;
 
-  static const String _defaultBaseUrl = "http://10.248.114.170:8000";
+  static const String _defaultBaseUrl = "http://10.175.36.170:8000";
+
+  /// Canonical base-URL resolver shared by ocr_page and compress_service
+  /// so there is ONE source of truth. Override via settings_box['base_url'].
+  static String resolveBaseUrl() => _instance._readBaseUrl();
 
   String _readBaseUrl() {
     try {

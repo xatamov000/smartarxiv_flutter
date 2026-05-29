@@ -146,17 +146,7 @@ class _OcrPageState extends State<OcrPage> {
   // 2) BACKEND URL
   // ============================================================
 
-  String _getBaseUrl() {
-    const defaultUrl = 'http://10.163.30.170:8000';
-    try {
-      final box = Hive.box('settings_box');
-      final v = (box.get('base_url') ?? '').toString().trim();
-      if (v.isEmpty) return defaultUrl;
-      return v.endsWith('/') ? v.substring(0, v.length - 1) : v;
-    } catch (_) {
-      return defaultUrl;
-    }
-  }
+  String _getBaseUrl() => ApiService.resolveBaseUrl();
 
   // ============================================================
   // 3) QUICK BACKEND CHECK - 5 seconds

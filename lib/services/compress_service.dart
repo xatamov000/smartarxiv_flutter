@@ -7,6 +7,8 @@ import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
+import 'api_service.dart';
+
 enum CompressionLevel { low, medium, high }
 
 class CompressService {
@@ -123,7 +125,7 @@ class CompressService {
     File pdfFile,
     CompressionLevel level,
   ) async {
-    final uri = Uri.parse("http://10.163.30.170:8000/compress-pdf");
+    final uri = Uri.parse("${ApiService.resolveBaseUrl()}/compress-pdf");
 
     final request = http.MultipartRequest("POST", uri);
 
