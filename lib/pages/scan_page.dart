@@ -66,7 +66,11 @@ class _ScanPageState extends State<ScanPage> {
       print('🔵 [DEBUG] Opening ImagePicker...');
       final img = await _picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 90,
+        // imageQuality ATAYLAB BERILMAYDI:
+        // ImageCompressService matn uchun moslangan q=92 da qayta kodlaydi.
+        // Bu yerda qiymat berish ikki marta JPEG yo'qotish keltirib chiqaradi
+        // (image_picker uni 90% sifatda kodlaydi, keyin compress 92% da
+        // yana qayta kodlaydi — matn chetlari kuchsizlanadi).
       );
 
       print('🔵 [DEBUG] ImagePicker result: ${img?.path ?? "null"}');
@@ -100,7 +104,10 @@ class _ScanPageState extends State<ScanPage> {
     final ok = await PermissionService.requestStorage();
     if (!ok) return;
 
-    final images = await _picker.pickMultiImage(imageQuality: 85);
+    final images = await _picker.pickMultiImage();
+    // imageQuality OLINDI: galereyada original sifatdagi PNG screenshot
+    // yoki yuqori sifatdagi suratni saqlamoqchimiz. ImageCompressService
+    // keyin manbaga moslashgan tarzda qayta ishlaydi (PNG → PNG, JPEG → q=92).
     if (images.isEmpty) return;
 
     setState(() {
