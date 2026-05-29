@@ -130,8 +130,10 @@ class _OcrResultPageState extends State<OcrResultPage> {
     setState(() => _isDownloading = true);
 
     try {
-      // Backend orqali DOCX yaratish
-      final bytes = await _ocrService.buildDocx(_extractedText);
+      // C-08: build the Word file from the STRUCTURED OCR blocks (/ocr/docx)
+      // instead of round-tripping plain text through /text-to-docx. This
+      // preserves headings, lists, paragraphs and tables in the DOCX.
+      final bytes = await _ocrService.buildDocxFromImages(widget.images);
 
       // Faylni saqlash
       final dir = await getApplicationDocumentsDirectory();
