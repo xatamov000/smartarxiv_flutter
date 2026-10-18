@@ -1,14 +1,14 @@
 // lib/pages/widgets/bottom_nav.dart
 //
-// BottomNav (simple):
-// - HomeShell yo‘q
-// - Named route yo‘q
-// - PushReplacement bilan 3 ta page orasida yuradi
+// BottomNav:
+// - Fast path: inside a HomeShell it switches the IndexedStack tab (no rebuild)
+// - Fallback: if no shell is found, it pushes the page (kept for safety)
 
 import 'package:flutter/material.dart';
 
 import '../../config/app_colors.dart';
 import '../documents_page.dart';
+import '../home_shell.dart';
 import '../profile_page.dart';
 import '../scan_page.dart';
 
@@ -127,6 +127,15 @@ class BottomNav extends StatelessWidget {
   void _navigate(BuildContext context, int index) {
     if (index == currentIndex) return;
 
+    // Fast path: if we're inside a HomeShell, just switch the IndexedStack tab.
+    // The three pages stay alive, so there is no rebuild / Hive re-read / lag.
+    final shell = context.findAncestorStateOfType<HomeShellState>();
+    if (shell != null) {
+      shell.setTab(index);
+      return;
+    }
+
+    // Fallback (page opened standalone, no shell): old push-based navigation.
     Widget page;
     switch (index) {
       case 0:

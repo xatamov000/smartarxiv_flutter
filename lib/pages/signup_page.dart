@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'login_page.dart';
-import 'documents_page.dart';
+import 'home_shell.dart';
 import '../services/google_auth_service.dart';
 
 class SignupPage extends StatefulWidget {
@@ -70,7 +70,7 @@ class _SignupPageState extends State<SignupPage> {
         context,
         MaterialPageRoute(
           builder: (_) =>
-              const DocumentsPage(),
+              const HomeShell(),
         ),
       );
 
@@ -101,7 +101,7 @@ class _SignupPageState extends State<SignupPage> {
           context,
           MaterialPageRoute(
             builder: (_) =>
-                const DocumentsPage(),
+                const HomeShell(),
           ),
         );
       } else {

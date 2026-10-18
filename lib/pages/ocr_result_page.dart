@@ -127,6 +127,15 @@ class _OcrResultPageState extends State<OcrResultPage> {
   Future<void> _downloadDocx() async {
     if (_extractedText.isEmpty) return;
 
+    // Ask the user for a file name (auto name is pre-filled and selected).
+    final now = DateTime.now();
+    final defaultName =
+        'Scan_${now.year}${_pad(now.month)}${_pad(now.day)}'
+        '_${_pad(now.hour)}${_pad(now.minute)}${_pad(now.second)}';
+    final chosen = await _askFileName(defaultName);
+    if (chosen == null) return; // user cancelled
+    final safeName = _sanitizeName(chosen, defaultName);
+
     setState(() => _isDownloading = true);
 
     try {
@@ -137,17 +146,14 @@ class _OcrResultPageState extends State<OcrResultPage> {
 
       // Faylni saqlash
       final dir = await getApplicationDocumentsDirectory();
-      final now = DateTime.now();
-      final fileName =
-          'Scan_${now.year}${_pad(now.month)}${_pad(now.day)}'
-          '_${_pad(now.hour)}${_pad(now.minute)}${_pad(now.second)}.docx';
+      final fileName = '$safeName.docx';
       final docxFile = File('${dir.path}/$fileName');
       await docxFile.writeAsBytes(bytes, flush: true);
 
       // Hive ga saqlash
       final docBox = Hive.box<DocumentModel>('documents_box');
       final document = DocumentModel(
-        title: fileName.replaceAll('.docx', ''),
+        title: safeName,
         filePath: docxFile.path,
         createdAt: DateTime.now(),
         fileType: 'docx',
@@ -268,6 +274,54 @@ class _OcrResultPageState extends State<OcrResultPage> {
         Flexible(child: Text(text, style: const TextStyle(fontSize: 13))),
       ],
     );
+  }
+
+  // Ask the user to name the file. Returns null if cancelled.
+  Future<String?> _askFileName(String suggested) async {
+    final controller = TextEditingController(text: suggested);
+    // Pre-select the text so the user can immediately type a new name.
+    controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: suggested.length,
+    );
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('File name'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Name',
+              suffixText: '.docx',
+              border: OutlineInputBorder(),
+            ),
+            onSubmitted: (v) => Navigator.pop(ctx, v.trim()),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Keep the name safe for a filename; fall back to the auto name if empty.
+  String _sanitizeName(String input, String fallback) {
+    var name = input.trim();
+    if (name.toLowerCase().endsWith('.docx')) {
+      name = name.substring(0, name.length - 5);
+    }
+    name = name.replaceAll(RegExp(r'[\\/:*?"<>|]'), '_').trim();
+    return name.isEmpty ? fallback : name;
   }
 
   String _pad(int n) => n.toString().padLeft(2, '0');

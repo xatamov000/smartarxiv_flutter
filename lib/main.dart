@@ -6,9 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 
 import 'config/app_colors.dart';
 import 'models/document_model.dart';
-import 'pages/documents_page.dart';
-import 'pages/profile_page.dart';
-import 'pages/scan_page.dart';
+import 'pages/home_shell.dart';
 import 'pages/login_page.dart';
 import 'pages/signup_page.dart';
 import 'pages/auth_gate.dart';
@@ -48,9 +46,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (_) => const LoginPage(),
         '/signup': (_) => const SignupPage(),
-        '/documents': (_) => const DocumentsPage(),
-        '/scan': (_) => const ScanPage(),
-        '/profile': (_) => const ProfilePage(),
+        '/home': (_) => const HomeShell(),
       },
     );
   }

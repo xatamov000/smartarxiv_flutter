@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'login_page.dart';
-import 'documents_page.dart';
+import 'home_shell.dart';
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -31,7 +31,7 @@ class AuthGate extends StatelessWidget {
         // Agar login qilingan bo‘lsa
         if (snapshot.hasData) {
 
-          return const DocumentsPage();
+          return const HomeShell();
 
         }
 

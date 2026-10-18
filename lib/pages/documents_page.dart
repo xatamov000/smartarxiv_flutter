@@ -16,6 +16,7 @@ import 'package:share_plus/share_plus.dart';
 
 import '../config/app_colors.dart';
 import '../models/document_model.dart';
+import 'home_shell.dart';
 import '../services/api_service.dart';
 import '../services/compress_service.dart';
 import '../services/google_drive_service.dart';
@@ -156,7 +157,16 @@ class _DocumentsPageState extends State<DocumentsPage>
           ],
         ),
         floatingActionButton: FloatingActionButton(
-          onPressed: () => Navigator.pushNamed(context, '/scan'),
+          // Switch to the Scan tab inside the HomeShell (kept-alive pages).
+          // Falls back to the named route if opened without a shell.
+          onPressed: () {
+            final shell = context.findAncestorStateOfType<HomeShellState>();
+            if (shell != null) {
+              shell.setTab(1);
+            } else {
+              Navigator.pushNamed(context, '/scan');
+            }
+          },
           backgroundColor: AppColors.primary,
           foregroundColor: Colors.white,
           child: const Icon(Icons.add, size: 28),
@@ -215,12 +225,9 @@ class _DocumentsPageState extends State<DocumentsPage>
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(
-        24,
-        MediaQuery.of(context).padding.top + 14,
-        24,
-        12, // 🔥 eng muhim o‘zgarish — 16 emas, 12
-      ),
+      // Match the Scan / Profile header height (same top & bottom padding)
+      // so the blue top bar looks consistent across all tabs.
+      padding: const EdgeInsets.fromLTRB(24, 48, 24, 32),
       decoration: const BoxDecoration(
         color: AppColors.primary,
         borderRadius: BorderRadius.only(
@@ -704,10 +711,12 @@ class _DocumentsPageState extends State<DocumentsPage>
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
+    ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
       SnackBar(
         content: Text("${docs.length} files deleted"),
-        duration: const Duration(seconds: 5),
+        duration: const Duration(seconds: 3),
         action: SnackBarAction(
           label: "Undo",
           onPressed: () async {
@@ -739,9 +748,9 @@ class _DocumentsPageState extends State<DocumentsPage>
 
         if (docs.isEmpty) {
           if (!mounted) return;
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text("Documents is empty")));
+          ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text("Documents is empty")));
           return;
         }
 
@@ -811,7 +820,9 @@ class _DocumentsPageState extends State<DocumentsPage>
 
       // 4. Natijani ko'rsatish
       if (compressedFiles.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
           const SnackBar(content: Text("No files were compressed")),
         );
         return;
@@ -831,7 +842,9 @@ class _DocumentsPageState extends State<DocumentsPage>
       final savedBytes = totalOriginalSize - totalCompressedSize;
       final savedPercent = (savedBytes / totalOriginalSize * 100).round();
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
         SnackBar(
           content: Text(
             "${compressedFiles.length} files compressed\n"
@@ -843,9 +856,9 @@ class _DocumentsPageState extends State<DocumentsPage>
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -1033,7 +1046,9 @@ class _DocumentsPageState extends State<DocumentsPage>
       if (!mounted) return;
       Navigator.pop(context);
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
         SnackBar(
           content: const Text("Word→PDF successfully"),
           action: SnackBarAction(
@@ -1045,9 +1060,9 @@ class _DocumentsPageState extends State<DocumentsPage>
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -1062,7 +1077,9 @@ class _DocumentsPageState extends State<DocumentsPage>
 
       if (result == null || result.files.length < 2) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
             const SnackBar(content: Text("Select at least 2 files")),
           );
         }
@@ -1077,7 +1094,9 @@ class _DocumentsPageState extends State<DocumentsPage>
 
       if (extensions.length != 1) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
             const SnackBar(content: Text("Mixed formats cannot be merged.")),
           );
         }
@@ -1115,7 +1134,9 @@ class _DocumentsPageState extends State<DocumentsPage>
       if (!mounted) return;
       Navigator.pop(context);
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
         SnackBar(
           content: Text("${files.length} files merged successfully"),
           action: SnackBarAction(
@@ -1127,9 +1148,9 @@ class _DocumentsPageState extends State<DocumentsPage>
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -1144,9 +1165,9 @@ class _DocumentsPageState extends State<DocumentsPage>
       final signedIn = await driveService.signIn();
 
       if (!signedIn) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Google login cancelled")));
+        ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text("Google login cancelled")));
         return;
       }
 
@@ -1185,7 +1206,9 @@ class _DocumentsPageState extends State<DocumentsPage>
           print("Drive link: $link");
 
           if (mounted && link != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
+            ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
               SnackBar(
                 content: const Text("File uploaded"),
                 action: SnackBarAction(
@@ -1204,9 +1227,9 @@ class _DocumentsPageState extends State<DocumentsPage>
     } catch (e) {
       Navigator.pop(context);
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Upload error: $e")));
+      ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text("Upload error: $e")));
     }
   }
 
@@ -1300,7 +1323,9 @@ class _DocumentsPageState extends State<DocumentsPage>
       if (!mounted) return;
       Navigator.pop(context);
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
         SnackBar(
           content: Text("PDF created: ${result.files.length} images"),
           action: SnackBarAction(
@@ -1312,9 +1337,9 @@ class _DocumentsPageState extends State<DocumentsPage>
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -1335,7 +1360,9 @@ class _DocumentsPageState extends State<DocumentsPage>
 
         if (docs.isEmpty) {
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
+          ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(
             const SnackBar(content: Text("No PDF found in Documents")),
           );
           return;
@@ -1413,9 +1440,9 @@ class _DocumentsPageState extends State<DocumentsPage>
       final end = int.parse(endController.text);
 
       if (start < 1 || end > pages || start > end) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Invalid page range")));
+        ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text("Invalid page range")));
         return;
       }
 
@@ -1446,15 +1473,15 @@ class _DocumentsPageState extends State<DocumentsPage>
       if (!mounted) return;
       Navigator.pop(context);
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("PDF split successfully")));
+      ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text("PDF split successfully")));
     } catch (e) {
       if (!mounted) return;
       Navigator.pop(context);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text("Error: $e")));
     }
   }
 
@@ -1594,15 +1621,15 @@ class _DocumentsPageState extends State<DocumentsPage>
         await doc.delete();
 
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text("Deleted")));
+          ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text("Deleted")));
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text("Error: $e")));
+          ScaffoldMessenger.of(context)
+      ..removeCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text("Error: $e")));
         }
       }
     }

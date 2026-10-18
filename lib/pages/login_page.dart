@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'signup_page.dart';
-import 'documents_page.dart';
+import 'home_shell.dart';
 import '../services/google_auth_service.dart';
 import 'forgot_password_page.dart';
 
@@ -48,7 +48,7 @@ class _LoginPageState extends State<LoginPage> {
         context,
         MaterialPageRoute(
           builder: (_) =>
-              const DocumentsPage(),
+              const HomeShell(),
         ),
       );
 
@@ -79,7 +79,7 @@ class _LoginPageState extends State<LoginPage> {
           context,
           MaterialPageRoute(
             builder: (_) =>
-                const DocumentsPage(),
+                const HomeShell(),
           ),
         );
       } else {

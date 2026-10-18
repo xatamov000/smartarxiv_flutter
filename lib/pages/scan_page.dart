@@ -112,7 +112,7 @@ class _ScanPageState extends State<ScanPage> {
 
     setState(() {
       for (final x in images) {
-        _pages.add(_ScanItem(file: File(x.path), allowCrop: false));
+        _pages.add(_ScanItem(file: File(x.path), allowCrop: true));
       }
       _currentIndex = _pages.length - 1;
     });
@@ -134,10 +134,78 @@ class _ScanPageState extends State<ScanPage> {
 
     setState(() {
       for (final p in paths) {
-        _pages.add(_ScanItem(file: File(p), allowCrop: false));
+        _pages.add(_ScanItem(file: File(p), allowCrop: true));
       }
       _currentIndex = _pages.length - 1;
     });
+  }
+
+  // ============================================================
+  // Source chooser (Camera / Gallery / Files) for the "+" tile
+  // ============================================================
+  void _showSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (_) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 12),
+              Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.black12,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  "Add image",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera, color: AppColors.primary),
+                title: const Text("Camera"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _addFromCamera();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_library, color: AppColors.primary),
+                title: const Text("Gallery"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickGalleryImages();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.folder, color: AppColors.primary),
+                title: const Text("Files"),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickFiles();
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _openEditor(int index) async {
@@ -473,7 +541,7 @@ class _ScanPageState extends State<ScanPage> {
             itemBuilder: (context, index) {
               if (index == 0) {
                 return GestureDetector(
-                  onTap: _addFromCamera,
+                  onTap: _showSourceSheet,
                   child: _addButton(),
                 );
               }

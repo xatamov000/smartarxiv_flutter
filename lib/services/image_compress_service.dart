@@ -23,8 +23,10 @@ class ImageCompressService {
   /// Maksimal qabul qilinadigan o'lcham — bundan kattalari kichraytiriladi
   static const int kMaxDimension = 3500;
 
-  /// Kichraytirish maqsadli o'lchami (backend det_limit_side_len = 1920)
-  static const int kTargetDimension = 1920;
+  /// Kichraytirish maqsadli o'lchami (backend det_limit_side_len = 2560).
+  /// 1920 dense matnда kamera bergan piksellarni isrof qilardi; 2560 mayda
+  /// shrift uchun ~1.3x ko'proq aniqlik beradi (OCR sifati uchun).
+  static const int kTargetDimension = 2560;
 
   /// OCR-xavfsiz JPEG sifati (eski 80 — matn chetlarida ringing yaratadi)
   static const int kJpegQuality = 92;

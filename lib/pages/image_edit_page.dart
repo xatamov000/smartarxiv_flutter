@@ -1,8 +1,9 @@
-﻿// lib/pages/image_edit_page.dart
+// lib/pages/image_edit_page.dart
 //
 // Full screen image edit page
-// - crop (optional, faqat camera)
 // - rotate
+// - crop (mode): the crop rectangle is shown ONLY after the Crop button is
+//   tapped; it disappears again once the crop is applied or cancelled.
 // - delete (confirm)
 // Returns ImageEditResult (updated/deleted)
 // NO OCR / NO DOCX here
@@ -48,7 +49,9 @@ class _ImageEditPageState extends State<ImageEditPage> {
   late Uint8List _imageBytes;
   bool _busy = false;
 
-  // Crop widget refresh uchun (rotate qilganda crop overlay reset boÃ¢â‚¬Ëœlsin)
+  // Crop rectangle is only visible while in crop mode.
+  bool _cropMode = false;
+  // Re-key the Crop widget so the rectangle resets each time we enter.
   int _cropVersion = 0;
 
   @override
@@ -74,7 +77,38 @@ class _ImageEditPageState extends State<ImageEditPage> {
     return widget.imageFile.writeAsBytes(bytes, flush: true);
   }
 
-  Future<void> _saveNoCrop() async {
+  // Enter crop mode: show the crop rectangle.
+  void _enterCropMode() {
+    setState(() {
+      _cropMode = true;
+      _cropVersion++;
+    });
+  }
+
+  // Cancel crop mode: hide the rectangle, keep the image unchanged.
+  void _cancelCrop() {
+    setState(() => _cropMode = false);
+  }
+
+  // Apply crop: trigger the controller; result handled in _onCropped.
+  void _applyCrop() {
+    setState(() => _busy = true);
+    _cropController.crop();
+  }
+
+  // Crop finished -> replace the in-memory image and leave crop mode,
+  // so the rectangle disappears and the cropped image is shown normally.
+  void _onCropped(Uint8List cropped) {
+    setState(() {
+      _imageBytes = cropped;
+      _cropMode = false;
+      _cropVersion++;
+      _busy = false;
+    });
+  }
+
+  // Save the edited image to disk and return to the scan page.
+  Future<void> _save() async {
     setState(() => _busy = true);
     try {
       final f = await _saveBytesToSameFile(_imageBytes);
@@ -85,28 +119,7 @@ class _ImageEditPageState extends State<ImageEditPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Error while saving: $e")));
-    } finally {
       if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  void _startCrop() {
-    // crop bosilganda busy qo'yamiz, cropped callbackda tushiramiz
-    setState(() => _busy = true);
-    _cropController.crop();
-  }
-
-  Future<void> _onCropped(Uint8List cropped) async {
-    try {
-      final f = await _saveBytesToSameFile(cropped);
-      if (!mounted) return;
-      Navigator.pop(context, ImageEditResult.updated(f));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Crop/Save error: $e")));
-      setState(() => _busy = false);
     }
   }
 
@@ -144,41 +157,73 @@ class _ImageEditPageState extends State<ImageEditPage> {
       appBar: AppBar(
         backgroundColor: AppColors.primary,
         foregroundColor: Colors.white,
-        title: const Text("Edit Image"),
-        actions: [
-          IconButton(
-            tooltip: "Rotate",
-            icon: const Icon(Icons.rotate_right),
-            onPressed: _busy ? null : _rotate90,
-          ),
-          if (widget.allowCrop)
-            IconButton(
-              tooltip: "Crop",
-              icon: const Icon(Icons.crop),
-              onPressed: _busy ? null : _startCrop,
-            ),
-          IconButton(
-            tooltip: "Delete",
-            icon: const Icon(Icons.delete),
-            onPressed: _busy ? null : _delete,
-          ),
-          IconButton(
-            tooltip: "Save",
-            icon: const Icon(Icons.check),
-            // Crop bo'lmasa Ã¢â‚¬â€ oddiy save
-            onPressed: _busy ? null : (widget.allowCrop ? null : _saveNoCrop),
-          ),
-        ],
+        title: Text(_cropMode ? "Crop Image" : "Edit Image"),
+        leading:
+            _cropMode
+                ? IconButton(
+                  tooltip: "Cancel",
+                  icon: const Icon(Icons.close),
+                  onPressed: _busy ? null : _cancelCrop,
+                )
+                : null,
+        actions:
+            _cropMode
+                ? [
+                  IconButton(
+                    tooltip: "Apply crop",
+                    icon: const Icon(Icons.check),
+                    onPressed: _busy ? null : _applyCrop,
+                  ),
+                ]
+                : [
+                  IconButton(
+                    tooltip: "Rotate",
+                    icon: const Icon(Icons.rotate_right),
+                    onPressed: _busy ? null : _rotate90,
+                  ),
+                  if (widget.allowCrop)
+                    IconButton(
+                      tooltip: "Crop",
+                      icon: const Icon(Icons.crop),
+                      onPressed: _busy ? null : _enterCropMode,
+                    ),
+                  IconButton(
+                    tooltip: "Delete",
+                    icon: const Icon(Icons.delete),
+                    onPressed: _busy ? null : _delete,
+                  ),
+                  IconButton(
+                    tooltip: "Save",
+                    icon: const Icon(Icons.check),
+                    onPressed: _busy ? null : _save,
+                  ),
+                ],
       ),
       body: Stack(
         children: [
-          if (widget.allowCrop)
+          if (_cropMode)
             Crop(
               key: ValueKey("crop_$_cropVersion"),
               controller: _cropController,
               image: _imageBytes,
               onCropped: _onCropped,
-              maskColor: Colors.black.withOpacity(0.6),
+              aspectRatio: null,
+              fixCropRect: false,
+              initialSize: 0.8,
+              cornerDotBuilder:
+                  (size, edgeAlignment) => Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: AppColors.primary, width: 3),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black54, blurRadius: 4),
+                      ],
+                    ),
+                  ),
+              maskColor: Colors.black.withOpacity(0.55),
               baseColor: Colors.black,
             )
           else
@@ -196,5 +241,3 @@ class _ImageEditPageState extends State<ImageEditPage> {
     );
   }
 }
-
-
